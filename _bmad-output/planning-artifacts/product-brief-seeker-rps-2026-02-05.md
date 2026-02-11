@@ -13,7 +13,7 @@ author: Léo
 
 The core innovation lies in the hybrid architecture: onchain escrow for fund security combined with offchain gameplay for instant responsiveness. Players can create or join games by exchanging simple 6-character codes (via manual entry, QR code, or potentially NFC), place bets in SOL, play instantly without blockchain delays, and automatically receive winnings through the smart contract. The target audience is Seeker device owners who value simplicity, social interaction, and fun over complex DeFi mechanics.
 
-With a tech stack optimized for rapid development (Kotlin for mobile, TypeScript + MongoDB for backend, Rust + Anchor for smart contracts), the MVP focuses on delivering the core 1v1 gameplay loop with maximum UX simplicity, setting the foundation for future features like tournaments, leaderboards, and community discovery.
+With a tech stack optimized for rapid development (Kotlin for mobile, Rust for backend, Rust + Anchor for smart contracts), the MVP focuses on delivering the core 1v1 gameplay loop with maximum UX simplicity, setting the foundation for future features like tournaments, leaderboards, and community discovery.
 
 ---
 
@@ -75,7 +75,7 @@ Current solutions for friendly betting or gaming between peers require manual ad
 
 **Technical Architecture:**
 - **Onchain (Rust + Anchor)**: Game state, escrow accounts, fund distribution logic with backend authority signature verification, emergency withdraw timelock for safety
-- **Offchain (TypeScript + MongoDB backend)**: Game code mapping (short codes to game addresses), commit-reveal gameplay logic, real-time WebSocket connections, audit logs for transparency
+- **Offchain (Rust backend)**: Game code mapping (short codes to game addresses), commit-reveal gameplay logic, real-time WebSocket connections, audit logs for transparency
 - **Mobile Client (Kotlin + Seeker Wallet Adapter)**: Native Seeker integration, intuitive UI, WebSocket for real-time updates, game code exchange mechanisms
 
 **Key Design Principles:**
@@ -110,7 +110,7 @@ Current solutions for friendly betting or gaming between peers require manual ad
 - Appropriate for low-stakes casual gaming (0.1-1 SOL range)
 
 **5. Developer-Friendly Foundation**
-- Modern tech stack (Kotlin, TypeScript, Rust/Anchor)
+- Modern tech stack (Kotlin, Rust backend, Rust/Anchor)
 - Clean separation of concerns (client, backend, blockchain)
 - Extensible architecture for future features (tournaments, matchmaking, leaderboards)
 - Fast iteration cycle for MVP and beyond
@@ -120,3 +120,9 @@ Current solutions for friendly betting or gaming between peers require manual ad
 - Solana fees and speed make micro-betting viable
 - Crypto adoption moving toward casual, social use cases
 - Gap in market for simple, fun blockchain experiences
+
+---
+
+## References
+
+- **Solana Mobile (Seeker) — Documentation:** [https://docs.solanamobile.com/](https://docs.solanamobile.com/) — SDK, Mobile Wallet Adapter, Seed Vault, and guides for Kotlin, React Native, Flutter, etc.
