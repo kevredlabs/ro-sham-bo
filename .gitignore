@@ -1,0 +1,20 @@
+# Env / IDE
+.env
+.env.*
+.idea/
+*.iml
+.vscode/
+.DS_Store
+
+# Rust
+target/
+
+# Build / logs
+*.log
+/build
+/captures
+.externalNativeBuild
+.cxx
+local.properties
+.gradle
+/captures
