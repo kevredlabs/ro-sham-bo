@@ -11,9 +11,9 @@ import dagger.hilt.InstallIn
 import dagger.hilt.android.components.ViewModelComponent
 import dagger.hilt.android.qualifiers.ApplicationContext
 
-val solanaUri = Uri.parse("https://solana.com")
+val solanaUri = Uri.parse("https://kevredlabs.com")
 val iconUri = Uri.parse("favicon.ico")
-val identityName = "Solana"
+val identityName = "Seeker RPS"
 
 @InstallIn(
     ViewModelComponent::class

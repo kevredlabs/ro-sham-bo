@@ -5,7 +5,6 @@ import com.solana.publickey.SolanaPublicKey
 import com.solana.rpc.Commitment
 import com.solana.rpc.SolanaRpcClient
 import com.solana.rpc.TransactionOptions
-import com.solanamobile.ktxclientsample.BuildConfig
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -18,11 +17,7 @@ class SolanaRpcUseCase @Inject constructor() {
     private val rpc: SolanaRpcClient
 
     init {
-        val url = BuildConfig.HELIUS_KEY?.let {
-            "https://devnet.helius-rpc.com/?api-key=$it"
-        } ?: "https://api.devnet.solana.com"
-
-        rpc = SolanaRpcClient(url, KtorNetworkDriver())
+        rpc = SolanaRpcClient(DEVNET_RPC_URL, KtorNetworkDriver())
     }
 
     suspend fun requestAirdrop(pubkey: SolanaPublicKey): String =
@@ -64,6 +59,7 @@ class SolanaRpcUseCase @Inject constructor() {
         }
 
     companion object {
+        private const val DEVNET_RPC_URL = "https://api.devnet.solana.com"
         const val LAMPORTS_PER_AIRDROP: Long = 100000000
         const val LAMPORTS_PER_SOL: Long = 1000000000
     }
