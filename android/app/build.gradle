@@ -32,6 +32,12 @@ android {
             }
         }
         buildConfigField "String", "HELIUS_KEY", heliusKey
+        // API: default = develop backend; override in local.properties (e.g. API_BASE_URL=http://10.0.2.2:3000) for local
+        String apiBaseUrl = "\"https://api.develop.rps.kevred.com\""
+        if (propertiesFile.exists() && properties.hasProperty("API_BASE_URL")) {
+            apiBaseUrl = "\"${properties.getProperty("API_BASE_URL")}\""
+        }
+        buildConfigField "String", "API_BASE_URL", apiBaseUrl
     }
 
     buildTypes {

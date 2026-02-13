@@ -14,6 +14,7 @@ import com.solana.publickey.SolanaPublicKey
 import com.solana.transaction.Message
 import com.solana.transaction.toUnsignedTransaction
 import com.solanamobile.ktxclientsample.usecase.Connected
+import com.solanamobile.ktxclientsample.usecase.GameApiUseCase
 import com.solanamobile.ktxclientsample.usecase.NotConnected
 import com.solanamobile.ktxclientsample.usecase.PersistanceUseCase
 import com.solanamobile.ktxclientsample.usecase.SolanaRpcUseCase
@@ -34,14 +35,18 @@ data class SampleViewState(
     val userLabel: String = "",
     val memoTx: String = "",
     val error: String = "",
-    val walletFound: Boolean = true
+    val walletFound: Boolean = true,
+    /** When non-null, show NewGameScreen with this PIN (game was just created). */
+    val gamePin: String? = null,
+    val gameId: String? = null
 )
 
 @HiltViewModel
 class SampleViewModel @Inject constructor(
     private val walletAdapter: MobileWalletAdapter,
     private val solanaRpcUseCase: SolanaRpcUseCase,
-    private val persistanceUseCase: PersistanceUseCase
+    private val persistanceUseCase: PersistanceUseCase,
+    private val gameApiUseCase: GameApiUseCase
 ): ViewModel() {
 
     private fun SampleViewState.updateViewState() {
@@ -111,6 +116,39 @@ class SampleViewModel @Inject constructor(
         }
     }
 
+    /** Creates a new game on the API and navigates to NewGameScreen with the 4-digit PIN. */
+    fun startNewGame() {
+        val address = _state.value.userAddress
+        if (address.isEmpty()) return
+        viewModelScope.launch {
+            _state.update { it.copy(isLoading = true, error = "") }
+            gameApiUseCase.createGame(address)
+                .onSuccess { result ->
+                    _state.update {
+                        it.copy(
+                            isLoading = false,
+                            gamePin = result.pin,
+                            gameId = result.gameId,
+                            error = ""
+                        )
+                    }
+                }
+                .onFailure { e ->
+                    _state.update {
+                        it.copy(
+                            isLoading = false,
+                            error = e.message ?: "Failed to create game"
+                        )
+                    }
+                }
+        }
+    }
+
+    /** Returns from NewGameScreen to main menu. */
+    fun backFromNewGame() {
+        _state.update { it.copy(gamePin = null, gameId = null) }
+    }
+
     fun disconnect(sender: ActivityResultSender) {
         val conn = persistanceUseCase.getWalletConnection()
         if (conn is Connected) {
@@ -123,7 +161,9 @@ class SampleViewModel @Inject constructor(
                     userAddress = "",
                     userLabel = "",
                     memoTx = "",
-                    error = ""
+                    error = "",
+                    gamePin = null,
+                    gameId = null
                 ).updateViewState()
             }
         }

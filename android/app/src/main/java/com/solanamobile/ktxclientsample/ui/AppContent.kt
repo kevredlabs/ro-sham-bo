@@ -20,14 +20,22 @@ fun AppContent(
     val isConnected = viewState.userAddress.isNotEmpty()
 
     if (isConnected) {
-        MainMenuScreen(
-            userAddress = viewState.userAddress,
-            solBalance = viewState.solBalance,
-            network = "Devnet",
-            onNewGame = { /* TODO */ },
-            onJoinGame = { /* TODO */ },
-            onDisconnect = { viewModel.disconnect(intentSender) }
-        )
+        val gamePin = viewState.gamePin
+        if (gamePin != null) {
+            NewGameScreen(
+                pin = gamePin,
+                onBack = { viewModel.backFromNewGame() }
+            )
+        } else {
+            MainMenuScreen(
+                userAddress = viewState.userAddress,
+                solBalance = viewState.solBalance,
+                network = "Devnet",
+                onNewGame = { viewModel.startNewGame() },
+                onJoinGame = { /* TODO */ },
+                onDisconnect = { viewModel.disconnect(intentSender) }
+            )
+        }
     } else {
         WalletConnectScreen(intentSender = intentSender, viewModel = viewModel)
     }
