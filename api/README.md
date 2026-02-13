@@ -9,11 +9,12 @@ Backend API for Seeker RPS. Persistence: **MongoDB**.
 
 ## Run locally
 
-1. Set `MONGODB_URI` (e.g. `mongodb://localhost:27017` or Atlas connection string).
+1. Set `MONGODB_URI` and `MONGODB_DB_NAME`.
 2. Start the API:
 
 ```bash
 export MONGODB_URI="mongodb://localhost:27017"
+export MONGODB_DB_NAME="rps"
 cargo run
 ```
 
@@ -23,4 +24,4 @@ Server listens on `0.0.0.0:3000`.
 
 API base URL for the develop environment: **https://api.develop.rps.kevred.com**
 
-Ensure `MONGODB_URI` is set in the deployment environment.
+Ensure `MONGODB_URI` and `MONGODB_DB_NAME` are set in the deployment environment.

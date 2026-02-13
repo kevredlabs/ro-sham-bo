@@ -4,8 +4,6 @@ use serde::Serialize;
 use std::net::SocketAddr;
 use tower_http::cors::{Any, CorsLayer};
 
-const DB_NAME: &str = "seeker_rps";
-
 #[derive(Serialize)]
 struct Health {
     status: &'static str,
@@ -26,10 +24,11 @@ async fn health() -> Json<Health> {
 #[tokio::main]
 async fn main() {
     let mongodb_uri = std::env::var("MONGODB_URI").expect("MONGODB_URI must be set");
+    let db_name = std::env::var("MONGODB_DB_NAME").expect("MONGODB_DB_NAME must be set");
     let client = mongodb::Client::with_uri_str(&mongodb_uri)
         .await
         .expect("MongoDB connection failed");
-    let db = client.database(DB_NAME);
+    let db = client.database(&db_name);
     let state = AppState { db };
 
     let cors = CorsLayer::new()
