@@ -6,13 +6,14 @@
 
 use axum::{
     extract::State,
-    http::StatusCode,
     routing::post,
     Json, Router,
 };
 use mongodb::{bson::doc, Database};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
+
+use crate::error::ApiError;
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Game {
@@ -67,13 +68,11 @@ fn generate_pin() -> String {
 async fn create_game(
     State(state): State<AppState>,
     Json(body): Json<CreateGameRequest>,
-) -> Result<Json<CreateGameResponse>, (StatusCode, String)> {
+) -> Result<Json<CreateGameResponse>, ApiError> {
     let creator_pubkey = body.creator_pubkey.trim();
     if creator_pubkey.is_empty() {
-        return Err((
-            StatusCode::BAD_REQUEST,
-            "creator_pubkey is required".to_string(),
-        ));
+        log::warn!("Create game rejected: missing creator_pubkey");
+        return Err(ApiError::bad_request("creator_pubkey is required"));
     }
 
     let game_id = Uuid::new_v4().to_string();
@@ -105,13 +104,20 @@ async fn create_game(
                 .build(),
         )
         .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+        .map_err(|e| {
+            log::error!("Failed to upsert user: {}", e);
+            ApiError::internal(e.to_string())
+        })?;
 
     games
         .insert_one(&game, None)
         .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+        .map_err(|e| {
+            log::error!("Failed to insert game: {}", e);
+            ApiError::internal(e.to_string())
+        })?;
 
+    log::info!("Game created game_id={} creator_pubkey={}", game_id, creator_pubkey);
     Ok(Json(CreateGameResponse { game_id, pin }))
 }
 
