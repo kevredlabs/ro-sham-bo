@@ -43,7 +43,13 @@ data class SampleViewState(
     /** When true, show JoinGameScreen (enter PIN to join). */
     val showJoinGameScreen: Boolean = false,
     /** When non-null, show CurrentGameScreen (user joined this game). */
-    val joinedGameId: String? = null
+    val joinedGameId: String? = null,
+    /** Current game screen phase: COUNTDOWN, SELECTION, WAITING_FOR_OTHER, RESULT_COUNTDOWN, RESULT. */
+    val gamePhase: String? = null,
+    /** Countdown value to display (3, 2, 1). */
+    val countdownNumber: Int = 3,
+    /** Result message after both played: "rock beats scissors, winner is: pubkey". */
+    val gameResultMessage: String? = null
 )
 
 @HiltViewModel
@@ -223,7 +229,108 @@ class SampleViewModel @Inject constructor(
 
     /** Returns from CurrentGameScreen to main menu. */
     fun backFromCurrentGame() {
-        _state.update { it.copy(joinedGameId = null) }
+        _state.update {
+            it.copy(
+                joinedGameId = null,
+                gamePhase = null,
+                countdownNumber = 3,
+                gameResultMessage = null
+            )
+        }
+    }
+
+    /** Called when CurrentGameScreen is shown. Starts initial 3-2-1 countdown then SELECTION. */
+    fun onCurrentGameScreenVisible(gameId: String) {
+        val current = _state.value
+        if (current.gamePhase != null) return
+        _state.update {
+            it.copy(gamePhase = "COUNTDOWN", countdownNumber = 3)
+        }
+        viewModelScope.launch {
+            for (n in listOf(3, 2, 1)) {
+                if (_state.value.joinedGameId != gameId) return@launch
+                _state.update { it.copy(countdownNumber = n) }
+                delay(1000L)
+            }
+            if (_state.value.joinedGameId != gameId) return@launch
+            _state.update {
+                it.copy(gamePhase = "SELECTION", countdownNumber = 0)
+            }
+        }
+    }
+
+    /** Submits RPS choice and starts polling until both players have chosen. */
+    fun submitChoice(choice: String) {
+        val gameId = _state.value.joinedGameId ?: return
+        val pubkey = _state.value.userAddress
+        if (pubkey.isEmpty()) return
+        val normalized = choice.lowercase()
+        if (normalized !in listOf("rock", "paper", "scissors")) return
+        viewModelScope.launch {
+            _state.update { it.copy(gamePhase = "WAITING_FOR_OTHER", error = "") }
+            gameApiUseCase.submitChoice(gameId, pubkey, normalized)
+                .onSuccess { gameState ->
+                    startPollingUntilBothChosen(gameId)
+                }
+                .onFailure { e ->
+                    _state.update {
+                        it.copy(
+                            gamePhase = "SELECTION",
+                            error = e.message ?: "Failed to submit choice"
+                        )
+                    }
+                }
+        }
+    }
+
+    private fun startPollingUntilBothChosen(gameId: String) {
+        viewModelScope.launch {
+            while (_state.value.joinedGameId == gameId && _state.value.gamePhase == "WAITING_FOR_OTHER") {
+                delay(1000L)
+                if (_state.value.joinedGameId != gameId || _state.value.gamePhase != "WAITING_FOR_OTHER") break
+                gameApiUseCase.getGame(gameId)
+                    .onSuccess { gameState ->
+                        val bothChosen = gameState.creatorChoice != null && gameState.joinerChoice != null
+                        if (bothChosen) {
+                            val message = buildResultMessage(gameState)
+                            _state.update {
+                                it.copy(
+                                    gamePhase = "RESULT_COUNTDOWN",
+                                    countdownNumber = 3,
+                                    gameResultMessage = message
+                                )
+                            }
+                            startResultCountdown(gameId)
+                            return@launch
+                        }
+                    }
+            }
+        }
+    }
+
+    private fun buildResultMessage(gameState: com.solanamobile.ktxclientsample.usecase.GameState): String {
+        val winner = gameState.winnerPubkey
+        val c = gameState.creatorChoice ?: ""
+        val j = gameState.joinerChoice ?: ""
+        return when {
+            winner == null -> "Draw: $c vs $j"
+            winner == gameState.creatorPubkey -> "$c beats $j, winner is: $winner"
+            else -> "$j beats $c, winner is: $winner"
+        }
+    }
+
+    private fun startResultCountdown(gameId: String) {
+        viewModelScope.launch {
+            for (n in listOf(3, 2, 1)) {
+                if (_state.value.joinedGameId != gameId) return@launch
+                _state.update { it.copy(countdownNumber = n) }
+                delay(1000L)
+            }
+            if (_state.value.joinedGameId != gameId) return@launch
+            _state.update {
+                it.copy(gamePhase = "RESULT", countdownNumber = 0)
+            }
+        }
     }
 
     fun disconnect(sender: ActivityResultSender) {
@@ -242,7 +349,10 @@ class SampleViewModel @Inject constructor(
                     gamePin = null,
                     gameId = null,
                     showJoinGameScreen = false,
-                    joinedGameId = null
+                    joinedGameId = null,
+                    gamePhase = null,
+                    countdownNumber = 3,
+                    gameResultMessage = null
                 ).updateViewState()
             }
         }

@@ -26,6 +26,12 @@ fun AppContent(
         when {
             joinedGameId != null -> CurrentGameScreen(
                 gameId = joinedGameId,
+                gamePhase = viewState.gamePhase,
+                countdownNumber = viewState.countdownNumber,
+                gameResultMessage = viewState.gameResultMessage,
+                error = viewState.error,
+                onScreenVisible = { viewModel.onCurrentGameScreenVisible(it) },
+                onSubmitChoice = { viewModel.submitChoice(it) },
                 onBack = { viewModel.backFromCurrentGame() }
             )
             gamePin != null -> NewGameScreen(

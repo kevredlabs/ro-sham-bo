@@ -110,11 +110,74 @@ class GameApiUseCase @Inject constructor() {
                 val joinerPubkey = if (json.has("joiner_pubkey") && !json.isNull("joiner_pubkey")) {
                     json.optString("joiner_pubkey", null)
                 } else null
+                val creatorChoice = if (json.has("creator_choice") && !json.isNull("creator_choice")) {
+                    json.optString("creator_choice", null)
+                } else null
+                val joinerChoice = if (json.has("joiner_choice") && !json.isNull("joiner_choice")) {
+                    json.optString("joiner_choice", null)
+                } else null
+                val winnerPubkey = if (json.has("winner_pubkey") && !json.isNull("winner_pubkey")) {
+                    json.optString("winner_pubkey", null)
+                } else null
                 Result.success(
                     GameState(
                         gameId = json.optString("_id", gameId),
                         status = status,
-                        joinerPubkey = joinerPubkey
+                        joinerPubkey = joinerPubkey,
+                        creatorChoice = creatorChoice,
+                        joinerChoice = joinerChoice,
+                        winnerPubkey = winnerPubkey,
+                        creatorPubkey = json.optString("creator_pubkey", null).takeIf { it.isNotEmpty() }
+                    )
+                )
+            }
+        }.getOrElse { e -> Result.failure(e) }
+    }
+
+    /**
+     * Submits the current player's choice (rock, paper, or scissors) for the game.
+     */
+    suspend fun submitChoice(gameId: String, pubkey: String, choice: String): Result<GameState> = withContext(Dispatchers.IO) {
+        val body = JSONObject().apply {
+            put("pubkey", pubkey)
+            put("choice", choice.lowercase())
+        }.toString()
+        val request = Request.Builder()
+            .url("$baseUrl/games/$gameId/choice")
+            .post(body.toRequestBody("application/json".toMediaType()))
+            .build()
+        runCatching {
+            client.newCall(request).execute().use { response ->
+                val responseBody = response.body?.string() ?: ""
+                if (!response.isSuccessful) {
+                    val message = try {
+                        JSONObject(responseBody).optString("error", responseBody).ifEmpty { "HTTP ${response.code}" }
+                    } catch (_: Exception) { "HTTP ${response.code}: $responseBody" }
+                    return@runCatching Result.failure<GameState>(Exception(message))
+                }
+                val json = JSONObject(responseBody)
+                val status = json.optString("status", "waiting")
+                val joinerPubkey = if (json.has("joiner_pubkey") && !json.isNull("joiner_pubkey")) {
+                    json.optString("joiner_pubkey", null)
+                } else null
+                val creatorChoice = if (json.has("creator_choice") && !json.isNull("creator_choice")) {
+                    json.optString("creator_choice", null)
+                } else null
+                val joinerChoice = if (json.has("joiner_choice") && !json.isNull("joiner_choice")) {
+                    json.optString("joiner_choice", null)
+                } else null
+                val winnerPubkey = if (json.has("winner_pubkey") && !json.isNull("winner_pubkey")) {
+                    json.optString("winner_pubkey", null)
+                } else null
+                Result.success(
+                    GameState(
+                        gameId = json.optString("_id", gameId),
+                        status = status,
+                        joinerPubkey = joinerPubkey,
+                        creatorChoice = creatorChoice,
+                        joinerChoice = joinerChoice,
+                        winnerPubkey = winnerPubkey,
+                        creatorPubkey = json.optString("creator_pubkey", null).takeIf { it.isNotEmpty() }
                     )
                 )
             }
@@ -134,5 +197,9 @@ data class JoinGameResult(
 data class GameState(
     val gameId: String,
     val status: String,
-    val joinerPubkey: String?
+    val joinerPubkey: String?,
+    val creatorChoice: String? = null,
+    val joinerChoice: String? = null,
+    val winnerPubkey: String? = null,
+    val creatorPubkey: String? = null
 )

@@ -34,6 +34,13 @@ pub struct JoinGameResponse {
     pub game_id: String,
 }
 
+/// Request body for submitting a RPS choice.
+#[derive(Deserialize)]
+pub struct SubmitChoiceRequest {
+    pub pubkey: String,
+    pub choice: String,
+}
+
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Game {
     #[serde(rename = "_id")]
@@ -45,6 +52,15 @@ pub struct Game {
     pub joiner_pubkey: Option<String>,
     pub status: GameStatus,
     pub created_at: i64,
+    /// Creator's choice: "rock", "paper", or "scissors".
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub creator_choice: Option<String>,
+    /// Joiner's choice.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub joiner_choice: Option<String>,
+    /// Winner's pubkey when both have chosen; null if draw.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub winner_pubkey: Option<String>,
 }
 
 #[derive(Clone, Copy, Serialize, Deserialize, Default, PartialEq, Eq)]
@@ -84,6 +100,31 @@ fn generate_pin() -> String {
     format!("{:04}", rand::thread_rng().gen_range(0..10000))
 }
 
+const VALID_CHOICES: [&str; 3] = ["rock", "paper", "scissors"];
+
+/// Returns (winner_choice, loser_choice, winner_pubkey) or None if draw.
+fn compute_winner(
+    creator_choice: &str,
+    joiner_choice: &str,
+    creator_pubkey: &str,
+    joiner_pubkey: &str,
+) -> Option<(String, String, String)> {
+    let c = creator_choice.to_lowercase();
+    let j = joiner_choice.to_lowercase();
+    if c == j {
+        return None;
+    }
+    let creator_wins = matches!(
+        (c.as_str(), j.as_str()),
+        ("rock", "scissors") | ("paper", "rock") | ("scissors", "paper")
+    );
+    if creator_wins {
+        Some((c, j, creator_pubkey.to_string()))
+    } else {
+        Some((j, c, joiner_pubkey.to_string()))
+    }
+}
+
 async fn create_game(
     State(state): State<AppState>,
     Json(body): Json<CreateGameRequest>,
@@ -108,6 +149,9 @@ async fn create_game(
         joiner_pubkey: None,
         status: GameStatus::Waiting,
         created_at,
+        creator_choice: None,
+        joiner_choice: None,
+        winner_pubkey: None,
     };
 
     let users = state.db.collection::<User>("users");
@@ -157,6 +201,109 @@ async fn get_game(
         Some(g) => Ok(Json(g)),
         None => Err(ApiError::not_found("Game not found")),
     }
+}
+
+async fn submit_choice(
+    State(state): State<AppState>,
+    Path(path): Path<GameIdPath>,
+    Json(body): Json<SubmitChoiceRequest>,
+) -> Result<Json<Game>, ApiError> {
+    let pubkey = body.pubkey.trim();
+    let choice = body.choice.trim().to_lowercase();
+    if pubkey.is_empty() {
+        return Err(ApiError::bad_request("pubkey is required"));
+    }
+    if !VALID_CHOICES.contains(&choice.as_str()) {
+        return Err(ApiError::bad_request("choice must be rock, paper, or scissors"));
+    }
+
+    let games = state.db.collection::<Game>("games");
+    let filter = doc! { "_id": &path.game_id };
+    let game = games
+        .find_one(filter.clone(), None)
+        .await
+        .map_err(|e| {
+            log::error!("Failed to find game: {}", e);
+            ApiError::internal(e.to_string())
+        })?;
+
+    let game = match game {
+        Some(g) => g,
+        None => return Err(ApiError::not_found("Game not found")),
+    };
+
+    let joiner_pubkey = match &game.joiner_pubkey {
+        Some(j) => j.as_str(),
+        None => return Err(ApiError::bad_request("Game has no second player yet")),
+    };
+
+    let (_, is_creator) = if pubkey == game.creator_pubkey {
+        ("creator_choice", true)
+    } else if pubkey == joiner_pubkey {
+        ("joiner_choice", false)
+    } else {
+        return Err(ApiError::bad_request("You are not a player in this game"));
+    };
+
+    let update_doc = if is_creator {
+        doc! { "$set": { "creator_choice": choice.as_str() } }
+    } else {
+        doc! { "$set": { "joiner_choice": choice.as_str() } }
+    };
+
+    games
+        .update_one(filter.clone(), update_doc, None)
+        .await
+        .map_err(|e| {
+            log::error!("Failed to update choice: {}", e);
+            ApiError::internal(e.to_string())
+        })?;
+
+    // Reload game and check if both have chosen; if so, compute winner and set status.
+    let updated = games
+        .find_one(filter, None)
+        .await
+        .map_err(|e| {
+            log::error!("Failed to find game after update: {}", e);
+            ApiError::internal(e.to_string())
+        })?;
+
+    let mut game = match updated {
+        Some(g) => g,
+        None => return Err(ApiError::not_found("Game not found")),
+    };
+
+    if let (Some(cc), Some(jc)) = (&game.creator_choice, &game.joiner_choice) {
+        let winner_pubkey = compute_winner(
+            cc,
+            jc,
+            &game.creator_pubkey,
+            game.joiner_pubkey.as_deref().unwrap_or(""),
+        )
+        .map(|(_, _, wp)| wp);
+        let status = GameStatus::Finished;
+        games
+            .update_one(
+                doc! { "_id": &path.game_id },
+                doc! {
+                    "$set": {
+                        "winner_pubkey": winner_pubkey.clone(),
+                        "status": "finished"
+                    }
+                },
+                None,
+            )
+            .await
+            .map_err(|e| {
+                log::error!("Failed to set winner: {}", e);
+                ApiError::internal(e.to_string())
+            })?;
+        game.winner_pubkey = winner_pubkey;
+        game.status = status;
+    }
+
+    log::info!("Choice submitted game_id={} pubkey={} choice={}", path.game_id, pubkey, choice);
+    Ok(Json(game))
 }
 
 async fn join_game(
@@ -231,5 +378,6 @@ pub fn games_routes(state: AppState) -> Router {
         .route("/games/create", post(create_game))
         .route("/games/join", post(join_game))
         .route("/games/:game_id", get(get_game))
+        .route("/games/:game_id/choice", post(submit_choice))
         .with_state(state)
 }
