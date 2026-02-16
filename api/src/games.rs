@@ -5,8 +5,8 @@
 //! - **games**: { _id, pin, creator_pubkey, joiner_pubkey, status, created_at } — exactly 2 players per game
 
 use axum::{
-    extract::State,
-    routing::post,
+    extract::{Path, State},
+    routing::{get, post},
     Json, Router,
 };
 use mongodb::{bson::doc, Database};
@@ -14,6 +14,12 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::error::ApiError;
+
+/// Path parameter for game ID.
+#[derive(Deserialize)]
+pub struct GameIdPath {
+    pub game_id: String,
+}
 
 /// Request body for joining an existing game by PIN.
 #[derive(Deserialize)]
@@ -134,6 +140,25 @@ async fn create_game(
     Ok(Json(CreateGameResponse { game_id, pin }))
 }
 
+async fn get_game(
+    State(state): State<AppState>,
+    Path(path): Path<GameIdPath>,
+) -> Result<Json<Game>, ApiError> {
+    let games = state.db.collection::<Game>("games");
+    let filter = doc! { "_id": &path.game_id };
+    let game = games
+        .find_one(filter, None)
+        .await
+        .map_err(|e| {
+            log::error!("Failed to find game: {}", e);
+            ApiError::internal(e.to_string())
+        })?;
+    match game {
+        Some(g) => Ok(Json(g)),
+        None => Err(ApiError::not_found("Game not found")),
+    }
+}
+
 async fn join_game(
     State(state): State<AppState>,
     Json(body): Json<JoinGameRequest>,
@@ -205,5 +230,6 @@ pub fn games_routes(state: AppState) -> Router {
     Router::new()
         .route("/games/create", post(create_game))
         .route("/games/join", post(join_game))
+        .route("/games/:game_id", get(get_game))
         .with_state(state)
 }

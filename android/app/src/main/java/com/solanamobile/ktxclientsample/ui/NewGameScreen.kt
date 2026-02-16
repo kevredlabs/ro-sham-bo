@@ -20,8 +20,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 /**
- * Screen shown after creating a new game. Displays the 4-digit PIN to share
- * so the other player can join the game.
+ * Screen shown after creating a new game. Displays "Waiting a second player",
+ * the 4-digit PIN to share, and polls the API every second; when someone joins,
+ * the app navigates to CurrentGameScreen.
  */
 @Composable
 fun NewGameScreen(
@@ -40,7 +41,13 @@ fun NewGameScreen(
             verticalArrangement = Arrangement.Center
         ) {
             Text(
-                text = "Share this PIN to start the game",
+                text = "Waiting a second player",
+                style = MaterialTheme.typography.h6,
+                color = MaterialTheme.colors.onSurface
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "Share this PIN so they can join",
                 style = MaterialTheme.typography.subtitle1,
                 color = MaterialTheme.colors.onSurface.copy(alpha = 0.8f)
             )

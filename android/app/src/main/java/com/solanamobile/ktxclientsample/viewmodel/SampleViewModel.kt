@@ -19,6 +19,7 @@ import com.solanamobile.ktxclientsample.usecase.NotConnected
 import com.solanamobile.ktxclientsample.usecase.PersistanceUseCase
 import com.solanamobile.ktxclientsample.usecase.SolanaRpcUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -136,6 +137,7 @@ class SampleViewModel @Inject constructor(
                             error = ""
                         )
                     }
+                    startPollingGameState(result.gameId)
                 }
                 .onFailure { e ->
                     _state.update {
@@ -148,9 +150,32 @@ class SampleViewModel @Inject constructor(
         }
     }
 
-    /** Returns from NewGameScreen to main menu. */
+    /** Returns from NewGameScreen (waiting) to main menu. Stops polling. */
     fun backFromNewGame() {
         _state.update { it.copy(gamePin = null, gameId = null) }
+    }
+
+    /** Polls game state every second; when a second player joins, navigates to CurrentGameScreen. */
+    private fun startPollingGameState(gameId: String) {
+        viewModelScope.launch {
+            while (_state.value.gameId == gameId) {
+                delay(1000L)
+                if (_state.value.gameId != gameId) break
+                gameApiUseCase.getGame(gameId)
+                    .onSuccess { gameState ->
+                        if (gameState.status == "active" || gameState.joinerPubkey != null) {
+                            _state.update {
+                                it.copy(
+                                    joinedGameId = gameId,
+                                    gamePin = null,
+                                    gameId = null
+                                )
+                            }
+                            return@launch
+                        }
+                    }
+            }
+        }
     }
 
     /** Navigate to JoinGameScreen (enter PIN). */

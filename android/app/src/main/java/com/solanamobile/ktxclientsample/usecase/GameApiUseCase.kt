@@ -87,6 +87,39 @@ class GameApiUseCase @Inject constructor() {
             }
         }.getOrElse { e -> Result.failure(e) }
     }
+
+    /**
+     * Fetches game state by ID (for polling). Returns status and joiner_pubkey.
+     */
+    suspend fun getGame(gameId: String): Result<GameState> = withContext(Dispatchers.IO) {
+        val request = Request.Builder()
+            .url("$baseUrl/games/$gameId")
+            .get()
+            .build()
+        runCatching {
+            client.newCall(request).execute().use { response ->
+                val responseBody = response.body?.string() ?: ""
+                if (!response.isSuccessful) {
+                    val message = try {
+                        JSONObject(responseBody).optString("error", responseBody).ifEmpty { "HTTP ${response.code}" }
+                    } catch (_: Exception) { "HTTP ${response.code}: $responseBody" }
+                    return@runCatching Result.failure<GameState>(Exception(message))
+                }
+                val json = JSONObject(responseBody)
+                val status = json.optString("status", "waiting")
+                val joinerPubkey = if (json.has("joiner_pubkey") && !json.isNull("joiner_pubkey")) {
+                    json.optString("joiner_pubkey", null)
+                } else null
+                Result.success(
+                    GameState(
+                        gameId = json.optString("_id", gameId),
+                        status = status,
+                        joinerPubkey = joinerPubkey
+                    )
+                )
+            }
+        }.getOrElse { e -> Result.failure(e) }
+    }
 }
 
 data class CreateGameResult(
@@ -96,4 +129,10 @@ data class CreateGameResult(
 
 data class JoinGameResult(
     val gameId: String
+)
+
+data class GameState(
+    val gameId: String,
+    val status: String,
+    val joinerPubkey: String?
 )
