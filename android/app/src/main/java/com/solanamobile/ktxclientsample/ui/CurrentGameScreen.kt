@@ -9,22 +9,21 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.MaterialTheme
-import androidx.compose.material.OutlinedButton
-import androidx.compose.material.Surface
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.solanamobile.ktxclientsample.ui.theme.PixelCyan
+import com.solanamobile.ktxclientsample.ui.theme.PixelGreen
+import com.solanamobile.ktxclientsample.ui.theme.PixelLightGray
+import com.solanamobile.ktxclientsample.ui.theme.PixelOrange
+import com.solanamobile.ktxclientsample.ui.theme.PixelRed
+import com.solanamobile.ktxclientsample.ui.theme.PixelYellow
 
-/**
- * Current game screen: countdown 3-2-1, then Rock/Paper/Scissors selection,
- * then wait for other player, then result countdown 3-2-1, then result message.
- */
 @Composable
 fun CurrentGameScreen(
     gameId: String,
@@ -40,18 +39,20 @@ fun CurrentGameScreen(
         onScreenVisible(gameId)
     }
 
-    Surface(
-        modifier = Modifier.fillMaxSize(),
-        color = Color.White
-    ) {
+    PixelScreen {
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(24.dp)
         ) {
-            OutlinedButton(onClick = onBack) {
-                Text("Back to menu")
-            }
+            PixelOutlinedButton(
+                text = "< Menu",
+                onClick = onBack,
+                modifier = Modifier.fillMaxWidth(0.35f),
+                buttonHeight = 36.dp,
+                borderColor = PixelLightGray,
+                textColor = PixelLightGray
+            )
 
             Spacer(modifier = Modifier.height(24.dp))
 
@@ -66,24 +67,25 @@ fun CurrentGameScreen(
                         Text(
                             text = countdownNumber.toString(),
                             style = MaterialTheme.typography.h3.copy(
-                                fontSize = 72.sp
+                                fontSize = 96.sp,
+                                letterSpacing = 4.sp
                             ),
-                            color = MaterialTheme.colors.primary
+                            color = PixelYellow
                         )
                     }
                 }
                 "SELECTION" -> {
                     Text(
-                        text = "Choose your move",
+                        text = "CHOOSE YOUR MOVE",
                         style = MaterialTheme.typography.h6,
-                        color = MaterialTheme.colors.onSurface,
+                        color = PixelCyan,
                         modifier = Modifier.fillMaxWidth()
                     )
                     if (error.isNotEmpty()) {
                         Text(
                             text = error,
                             style = MaterialTheme.typography.body2,
-                            color = MaterialTheme.colors.error,
+                            color = PixelRed,
                             modifier = Modifier.padding(vertical = 8.dp)
                         )
                     }
@@ -93,14 +95,24 @@ fun CurrentGameScreen(
                         verticalArrangement = Arrangement.spacedBy(12.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        listOf("Rock", "Paper", "Scissors").forEach { choice ->
-                            OutlinedButton(
-                                modifier = Modifier.fillMaxWidth().height(56.dp),
-                                onClick = { onSubmitChoice(choice) }
-                            ) {
-                                Text(choice)
-                            }
-                        }
+                        PixelButton(
+                            text = "ROCK",
+                            onClick = { onSubmitChoice("Rock") },
+                            modifier = Modifier.fillMaxWidth(),
+                            bgColor = PixelOrange
+                        )
+                        PixelButton(
+                            text = "PAPER",
+                            onClick = { onSubmitChoice("Paper") },
+                            modifier = Modifier.fillMaxWidth(),
+                            bgColor = PixelCyan
+                        )
+                        PixelButton(
+                            text = "SCISSORS",
+                            onClick = { onSubmitChoice("Scissors") },
+                            modifier = Modifier.fillMaxWidth(),
+                            bgColor = PixelGreen
+                        )
                     }
                 }
                 "WAITING_FOR_OTHER" -> {
@@ -110,11 +122,20 @@ fun CurrentGameScreen(
                             .weight(1f),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text(
-                            text = "Waiting for other player...",
-                            style = MaterialTheme.typography.h6,
-                            color = MaterialTheme.colors.onSurface.copy(alpha = 0.8f)
-                        )
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(
+                                text = "WAITING FOR\nOPPONENT...",
+                                style = MaterialTheme.typography.h6,
+                                color = PixelYellow,
+                                textAlign = TextAlign.Center
+                            )
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Text(
+                                text = ". . .",
+                                style = MaterialTheme.typography.h4,
+                                color = PixelCyan
+                            )
+                        }
                     }
                 }
                 "RESULT" -> {
@@ -125,9 +146,9 @@ fun CurrentGameScreen(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = gameResultMessage ?: "—",
-                            style = MaterialTheme.typography.h6,
-                            color = MaterialTheme.colors.onSurface,
+                            text = (gameResultMessage ?: "-").uppercase(),
+                            style = MaterialTheme.typography.h5,
+                            color = PixelYellow,
                             textAlign = TextAlign.Center,
                             modifier = Modifier.padding(horizontal = 16.dp)
                         )
@@ -141,9 +162,9 @@ fun CurrentGameScreen(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = "Getting ready...",
+                            text = "LOADING...",
                             style = MaterialTheme.typography.body1,
-                            color = MaterialTheme.colors.onSurface.copy(alpha = 0.6f)
+                            color = PixelLightGray
                         )
                     }
                 }

@@ -9,20 +9,16 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.material.Button
 import androidx.compose.material.CircularProgressIndicator
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Scaffold
 import androidx.compose.material.SnackbarHost
 import androidx.compose.material.SnackbarHostState
 import androidx.compose.material.SnackbarResult
-import androidx.compose.material.Surface
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -30,13 +26,11 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.solana.mobilewalletadapter.clientlib.ActivityResultSender
+import com.solanamobile.ktxclientsample.ui.theme.PixelCyan
+import com.solanamobile.ktxclientsample.ui.theme.PixelYellow
 import com.solanamobile.ktxclientsample.viewmodel.SampleViewModel
 import kotlinx.coroutines.flow.collectLatest
 
-/**
- * Wallet connection screen via Mobile Wallet Adapter (Seeker / MWA-compatible wallet).
- * Shown only when the user is not connected; after successful sign-in, navigation goes to Hello World.
- */
 @Composable
 fun WalletConnectScreen(
     intentSender: ActivityResultSender,
@@ -62,13 +56,11 @@ fun WalletConnectScreen(
     }
 
     Scaffold(
-        snackbarHost = { SnackbarHost(snackbarHostState) }
+        snackbarHost = { SnackbarHost(snackbarHostState) },
+        backgroundColor = MaterialTheme.colors.background
     ) { padding ->
-        Surface(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding),
-            color = MaterialTheme.colors.background
+        PixelScreen(
+            modifier = Modifier.padding(padding)
         ) {
             Box(modifier = Modifier.fillMaxSize()) {
                 Column(
@@ -79,34 +71,34 @@ fun WalletConnectScreen(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Text(
-                        text = "Seeker RPS",
-                        style = MaterialTheme.typography.h4,
+                        text = "SEEKER RPS",
+                        style = MaterialTheme.typography.h3,
+                        color = PixelCyan,
                         textAlign = TextAlign.Center
                     )
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
                     Text(
-                        text = "Connect your Seeker wallet to continue",
+                        text = "Connect your wallet\nto start playing",
                         style = MaterialTheme.typography.body1,
+                        color = PixelYellow,
                         textAlign = TextAlign.Center
                     )
-                    Spacer(modifier = Modifier.height(32.dp))
+                    Spacer(modifier = Modifier.height(40.dp))
 
                     if (!viewState.walletFound) {
                         Text(
-                            text = "No MWA-compatible wallet found on this device.",
+                            text = "No MWA wallet found\non this device.",
                             style = MaterialTheme.typography.body2,
+                            color = MaterialTheme.colors.error,
                             textAlign = TextAlign.Center
                         )
                     } else {
-                        Button(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(48.dp),
+                        PixelButton(
+                            text = "Connect Wallet",
                             onClick = { viewModel.signIn(intentSender) },
-                            enabled = !viewState.isLoading
-                        ) {
-                            Text("Connect wallet")
-                        }
+                            enabled = !viewState.isLoading,
+                            modifier = Modifier.fillMaxWidth()
+                        )
                     }
                 }
 
@@ -114,7 +106,8 @@ fun WalletConnectScreen(
                     CircularProgressIndicator(
                         modifier = Modifier
                             .size(48.dp)
-                            .align(Alignment.Center)
+                            .align(Alignment.Center),
+                        color = PixelCyan
                     )
                 }
             }

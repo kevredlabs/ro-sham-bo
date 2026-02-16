@@ -1,5 +1,6 @@
 package com.solanamobile.ktxclientsample.ui
 
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -7,21 +8,21 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.Button
 import androidx.compose.material.MaterialTheme
-import androidx.compose.material.OutlinedButton
-import androidx.compose.material.Surface
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.solanamobile.ktxclientsample.ui.theme.PixelCyan
+import com.solanamobile.ktxclientsample.ui.theme.PixelGreen
+import com.solanamobile.ktxclientsample.ui.theme.PixelLightGray
+import com.solanamobile.ktxclientsample.ui.theme.PixelOrange
+import com.solanamobile.ktxclientsample.ui.theme.PixelYellow
 
-/**
- * Main menu shown after wallet connection.
- * New Game / Join Game actions and wallet info (pubkey, balance, network) at the bottom.
- */
 @Composable
 fun MainMenuScreen(
     userAddress: String,
@@ -31,75 +32,85 @@ fun MainMenuScreen(
     onJoinGame: () -> Unit = {},
     onDisconnect: (() -> Unit)? = null
 ) {
-    Surface(
-        modifier = Modifier.fillMaxSize(),
-        color = MaterialTheme.colors.background
-    ) {
+    PixelScreen {
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            Spacer(modifier = Modifier.height(32.dp))
+
+            Text(
+                text = "SEEKER RPS",
+                style = MaterialTheme.typography.h3,
+                color = PixelCyan,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
+            )
+
             Spacer(modifier = Modifier.weight(1f))
 
-            Button(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(48.dp),
-                onClick = onNewGame
-            ) {
-                Text("New Game")
-            }
+            PixelButton(
+                text = "New Game",
+                onClick = onNewGame,
+                modifier = Modifier.fillMaxWidth(),
+                bgColor = PixelGreen
+            )
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            Button(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(48.dp),
-                onClick = onJoinGame
-            ) {
-                Text("Join Game")
-            }
+            PixelButton(
+                text = "Join Game",
+                onClick = onJoinGame,
+                modifier = Modifier.fillMaxWidth(),
+                bgColor = PixelOrange
+            )
 
             Spacer(modifier = Modifier.weight(1f))
 
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(vertical = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+                    .border(2.dp, PixelLightGray.copy(alpha = 0.3f), RectangleShape)
+                    .padding(12.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
                 horizontalAlignment = Alignment.Start
             ) {
                 Text(
-                    text = "Wallet",
-                    style = MaterialTheme.typography.subtitle1,
-                    color = MaterialTheme.colors.onSurface.copy(alpha = 0.7f)
+                    text = "WALLET",
+                    style = MaterialTheme.typography.caption,
+                    color = PixelLightGray
                 )
                 Text(
-                    text = userAddress.ifEmpty { "—" },
+                    text = userAddress.ifEmpty { "-" },
                     style = MaterialTheme.typography.body2,
+                    color = PixelYellow,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
                 Text(
-                    text = "Balance: ${if (solBalance >= 0) "$solBalance SOL" else "—"}",
-                    style = MaterialTheme.typography.body2
+                    text = "BAL: ${if (solBalance >= 0) "$solBalance SOL" else "-"}",
+                    style = MaterialTheme.typography.body2,
+                    color = PixelCyan
                 )
                 Text(
-                    text = "Network: $network",
-                    style = MaterialTheme.typography.body2
+                    text = "NET: $network",
+                    style = MaterialTheme.typography.body2,
+                    color = PixelLightGray
                 )
             }
 
             onDisconnect?.let { disconnect ->
-                OutlinedButton(
+                Spacer(modifier = Modifier.height(12.dp))
+                PixelOutlinedButton(
+                    text = "Disconnect",
+                    onClick = disconnect,
                     modifier = Modifier.fillMaxWidth(),
-                    onClick = disconnect
-                ) {
-                    Text("Disconnect")
-                }
+                    borderColor = PixelLightGray,
+                    textColor = PixelLightGray,
+                    buttonHeight = 40.dp
+                )
             }
         }
     }

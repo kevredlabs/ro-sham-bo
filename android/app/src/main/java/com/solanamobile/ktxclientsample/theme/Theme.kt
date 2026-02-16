@@ -1,24 +1,22 @@
 package com.solanamobile.ktxclientsample.ui.theme
 
 import androidx.compose.material.MaterialTheme
-import androidx.compose.material.lightColors
+import androidx.compose.material.darkColors
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.graphics.Color
 
-private val LightColorPalette = lightColors(
-    primary = Color(0xFF6750a4),
-    secondary = Color(0xFFe7e0ec),
-    secondaryVariant = Color(0xFFf8f3f8),
-    surface = Color(0xFFe7e0ec),
-
-    /*
-    background = Color.White,
-    surface = Color.White,
-    onPrimary = Color.White,
-    onSecondary = Color.Black,
-    onBackground = Color.Black,
-    onSurface = Color.Black,
-    */
+private val PixelColorPalette = darkColors(
+    primary = PixelCyan,
+    primaryVariant = PixelBlue,
+    secondary = PixelYellow,
+    secondaryVariant = PixelOrange,
+    background = PixelBlack,
+    surface = PixelDarkGray,
+    error = PixelRed,
+    onPrimary = PixelBlack,
+    onSecondary = PixelBlack,
+    onBackground = PixelWhite,
+    onSurface = PixelWhite,
+    onError = PixelWhite
 )
 
 @Composable
@@ -26,7 +24,7 @@ fun KtxClientSampleTheme(
     content: @Composable () -> Unit
 ) {
     MaterialTheme(
-        colors = LightColorPalette,
+        colors = PixelColorPalette,
         typography = Typography,
         shapes = Shapes,
         content = content

@@ -1,8 +1,11 @@
 package com.solanamobile.ktxclientsample.ui
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -11,10 +14,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.Icon
-import androidx.compose.material.IconButton
 import androidx.compose.material.MaterialTheme
-import androidx.compose.material.OutlinedButton
-import androidx.compose.material.Surface
 import androidx.compose.material.Text
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Backspace
@@ -25,17 +25,21 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.solanamobile.ktxclientsample.ui.theme.PixelBlack
+import com.solanamobile.ktxclientsample.ui.theme.PixelCyan
+import com.solanamobile.ktxclientsample.ui.theme.PixelDarkGray
+import com.solanamobile.ktxclientsample.ui.theme.PixelGray
+import com.solanamobile.ktxclientsample.ui.theme.PixelLightGray
+import com.solanamobile.ktxclientsample.ui.theme.PixelWhite
+import com.solanamobile.ktxclientsample.ui.theme.PixelYellow
 
 private const val PIN_LENGTH = 4
 
-/**
- * Screen to join an existing game by entering a 4-digit PIN.
- * Uses a numeric-only keypad (digits 0-9) and an Enter button to validate.
- */
 @Composable
 fun JoinGameScreen(
     isLoading: Boolean,
@@ -44,48 +48,55 @@ fun JoinGameScreen(
     onBack: () -> Unit
 ) {
     var pinDigits by remember { mutableStateOf("") }
-    Surface(
-        modifier = Modifier.fillMaxSize(),
-        color = MaterialTheme.colors.background
-    ) {
+
+    PixelScreen {
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            OutlinedButton(
-                modifier = Modifier
-                    .align(Alignment.Start)
-                    .padding(0.dp),
-                onClick = onBack
-            ) {
-                Text("Back")
-            }
+            PixelOutlinedButton(
+                text = "< Back",
+                onClick = onBack,
+                modifier = Modifier.align(Alignment.Start).fillMaxWidth(0.35f),
+                buttonHeight = 36.dp,
+                borderColor = PixelLightGray,
+                textColor = PixelLightGray
+            )
 
             Spacer(modifier = Modifier.height(24.dp))
 
             Text(
-                text = "Enter game PIN",
-                style = MaterialTheme.typography.subtitle1,
-                color = MaterialTheme.colors.onSurface.copy(alpha = 0.8f)
+                text = "ENTER GAME PIN",
+                style = MaterialTheme.typography.h6,
+                color = PixelCyan
             )
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // PIN display: show entered digits, then dots for remaining
-            val display = (pinDigits + "____").take(PIN_LENGTH).map { c ->
-                if (c in '0'..'9') c else '•'
-            }.joinToString(" ")
-            Text(
-                text = display,
-                style = MaterialTheme.typography.h4.copy(
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 8.sp
-                ),
-                color = MaterialTheme.colors.primary,
-                textAlign = TextAlign.Center
-            )
+            // PIN display
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.padding(vertical = 8.dp)
+            ) {
+                for (i in 0 until PIN_LENGTH) {
+                    val char = pinDigits.getOrNull(i)
+                    Box(
+                        modifier = Modifier
+                            .size(48.dp)
+                            .border(2.dp, if (char != null) PixelYellow else PixelGray, RectangleShape)
+                            .background(PixelDarkGray),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = char?.toString() ?: "_",
+                            style = MaterialTheme.typography.h4.copy(fontSize = 20.sp),
+                            color = if (char != null) PixelYellow else PixelGray
+                        )
+                    }
+                }
+            }
 
             if (error.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(8.dp))
@@ -96,99 +107,93 @@ fun JoinGameScreen(
                 )
             }
 
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(24.dp))
 
-            // Numeric keypad: 1-9, 0, backspace, then Enter
+            // Numeric keypad
             Column(
-                verticalArrangement = Arrangement.spacedBy(12.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    listOf('1', '2', '3').forEach { digit ->
-                        DigitKey(
-                            digit = digit,
-                            onClick = { pinDigits = (pinDigits + digit).take(PIN_LENGTH) },
-                            enabled = !isLoading && pinDigits.length < PIN_LENGTH
-                        )
+                listOf(
+                    listOf('1', '2', '3'),
+                    listOf('4', '5', '6'),
+                    listOf('7', '8', '9')
+                ).forEach { row ->
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        row.forEach { digit ->
+                            PixelDigitKey(
+                                digit = digit,
+                                onClick = { pinDigits = (pinDigits + digit).take(PIN_LENGTH) },
+                                enabled = !isLoading && pinDigits.length < PIN_LENGTH
+                            )
+                        }
                     }
                 }
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    listOf('4', '5', '6').forEach { digit ->
-                        DigitKey(
-                            digit = digit,
-                            onClick = { pinDigits = (pinDigits + digit).take(PIN_LENGTH) },
-                            enabled = !isLoading && pinDigits.length < PIN_LENGTH
-                        )
-                    }
-                }
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    listOf('7', '8', '9').forEach { digit ->
-                        DigitKey(
-                            digit = digit,
-                            onClick = { pinDigits = (pinDigits + digit).take(PIN_LENGTH) },
-                            enabled = !isLoading && pinDigits.length < PIN_LENGTH
-                        )
-                    }
-                }
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    IconButton(
-                        onClick = { pinDigits = pinDigits.dropLast(1) },
-                        enabled = !isLoading && pinDigits.isNotEmpty(),
-                        modifier = Modifier.size(64.dp)
+                // Last row: backspace, 0, empty
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Box(
+                        modifier = Modifier
+                            .size(56.dp)
+                            .border(2.dp, if (pinDigits.isNotEmpty()) PixelLightGray else PixelGray, RectangleShape)
+                            .then(
+                                if (!isLoading && pinDigits.isNotEmpty())
+                                    Modifier.clickable { pinDigits = pinDigits.dropLast(1) }
+                                else Modifier
+                            ),
+                        contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             imageVector = Icons.Default.Backspace,
-                            contentDescription = "Backspace"
+                            contentDescription = "Backspace",
+                            tint = if (pinDigits.isNotEmpty()) PixelLightGray else PixelGray,
+                            modifier = Modifier.size(20.dp)
                         )
                     }
-                    DigitKey(
+                    PixelDigitKey(
                         digit = '0',
                         onClick = { pinDigits = (pinDigits + '0').take(PIN_LENGTH) },
                         enabled = !isLoading && pinDigits.length < PIN_LENGTH
                     )
-                    Spacer(modifier = Modifier.size(64.dp))
+                    Spacer(modifier = Modifier.size(56.dp))
                 }
             }
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            OutlinedButton(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(48.dp),
+            PixelButton(
+                text = if (isLoading) "Joining..." else "Enter",
                 onClick = { onEnter(pinDigits) },
-                enabled = !isLoading && pinDigits.length == PIN_LENGTH
-            ) {
-                Text(if (isLoading) "Joining…" else "Enter")
-            }
+                enabled = !isLoading && pinDigits.length == PIN_LENGTH,
+                modifier = Modifier.fillMaxWidth()
+            )
         }
     }
 }
 
 @Composable
-private fun DigitKey(
+private fun PixelDigitKey(
     digit: Char,
     onClick: () -> Unit,
     enabled: Boolean
 ) {
-    OutlinedButton(
-        onClick = onClick,
-        enabled = enabled,
-        modifier = Modifier.size(64.dp),
-        contentPadding = PaddingValues(0.dp)
+    val borderColor = if (enabled) PixelCyan else PixelGray
+    val textColor = if (enabled) PixelWhite else PixelGray
+
+    Box(
+        modifier = Modifier
+            .size(56.dp)
+            .border(2.dp, borderColor, RectangleShape)
+            .background(if (enabled) Color.Transparent else Color.Transparent)
+            .then(
+                if (enabled) Modifier.clickable(onClick = onClick) else Modifier
+            ),
+        contentAlignment = Alignment.Center
     ) {
         Text(
             text = digit.toString(),
-            style = MaterialTheme.typography.h5
+            style = MaterialTheme.typography.h5,
+            color = textColor,
+            textAlign = TextAlign.Center
         )
     }
 }
