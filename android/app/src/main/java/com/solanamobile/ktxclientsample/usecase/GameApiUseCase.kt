@@ -34,7 +34,7 @@ class GameApiUseCase @Inject constructor() {
             put("creator_pubkey", creatorWallet)
         }.toString()
         val request = Request.Builder()
-            .url("$baseUrl/games")
+            .url("$baseUrl/games/create")
             .post(body.toRequestBody("application/json".toMediaType()))
             .build()
         runCatching {
@@ -55,9 +55,45 @@ class GameApiUseCase @Inject constructor() {
             }
         }.getOrElse { e -> Result.failure(e) }
     }
+
+    /**
+     * Joins an existing game by 4-digit PIN. Returns game id on success.
+     * @param pin 4-digit PIN shared by the game creator
+     * @param joinerWallet Solana public key (base58) of the player joining
+     * @return Result with JoinGameResult or error message
+     */
+    suspend fun joinGame(pin: String, joinerWallet: String): Result<JoinGameResult> = withContext(Dispatchers.IO) {
+        val body = JSONObject().apply {
+            put("pin", pin)
+            put("joiner_pubkey", joinerWallet)
+        }.toString()
+        val request = Request.Builder()
+            .url("$baseUrl/games/join")
+            .post(body.toRequestBody("application/json".toMediaType()))
+            .build()
+        runCatching {
+            client.newCall(request).execute().use { response ->
+                val responseBody = response.body?.string() ?: ""
+                if (!response.isSuccessful) {
+                    val message = try {
+                        JSONObject(responseBody).optString("error", responseBody).ifEmpty { "HTTP ${response.code}" }
+                    } catch (_: Exception) { "HTTP ${response.code}: $responseBody" }
+                    return@runCatching Result.failure<JoinGameResult>(Exception(message))
+                }
+                val json = JSONObject(responseBody)
+                Result.success(
+                    JoinGameResult(gameId = json.getString("game_id"))
+                )
+            }
+        }.getOrElse { e -> Result.failure(e) }
+    }
 }
 
 data class CreateGameResult(
     val gameId: String,
     val pin: String
+)
+
+data class JoinGameResult(
+    val gameId: String
 )

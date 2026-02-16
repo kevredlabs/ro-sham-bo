@@ -20,19 +20,30 @@ fun AppContent(
     val isConnected = viewState.userAddress.isNotEmpty()
 
     if (isConnected) {
+        val joinedGameId = viewState.joinedGameId
         val gamePin = viewState.gamePin
-        if (gamePin != null) {
-            NewGameScreen(
+        val showJoinGame = viewState.showJoinGameScreen
+        when {
+            joinedGameId != null -> CurrentGameScreen(
+                gameId = joinedGameId,
+                onBack = { viewModel.backFromCurrentGame() }
+            )
+            gamePin != null -> NewGameScreen(
                 pin = gamePin,
                 onBack = { viewModel.backFromNewGame() }
             )
-        } else {
-            MainMenuScreen(
+            showJoinGame -> JoinGameScreen(
+                isLoading = viewState.isLoading,
+                error = viewState.error,
+                onEnter = { viewModel.joinGame(it) },
+                onBack = { viewModel.backFromJoinGame() }
+            )
+            else -> MainMenuScreen(
                 userAddress = viewState.userAddress,
                 solBalance = viewState.solBalance,
                 network = "Devnet",
                 onNewGame = { viewModel.startNewGame() },
-                onJoinGame = { /* TODO */ },
+                onJoinGame = { viewModel.enterJoinGame() },
                 onDisconnect = { viewModel.disconnect(intentSender) }
             )
         }

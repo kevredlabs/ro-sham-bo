@@ -27,6 +27,13 @@ impl ApiError {
             message: msg.into(),
         }
     }
+
+    pub fn not_found(msg: impl Into<String>) -> Self {
+        Self {
+            status: StatusCode::NOT_FOUND,
+            message: msg.into(),
+        }
+    }
 }
 
 impl IntoResponse for ApiError {

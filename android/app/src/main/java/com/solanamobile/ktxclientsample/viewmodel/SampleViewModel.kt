@@ -38,7 +38,11 @@ data class SampleViewState(
     val walletFound: Boolean = true,
     /** When non-null, show NewGameScreen with this PIN (game was just created). */
     val gamePin: String? = null,
-    val gameId: String? = null
+    val gameId: String? = null,
+    /** When true, show JoinGameScreen (enter PIN to join). */
+    val showJoinGameScreen: Boolean = false,
+    /** When non-null, show CurrentGameScreen (user joined this game). */
+    val joinedGameId: String? = null
 )
 
 @HiltViewModel
@@ -149,6 +153,54 @@ class SampleViewModel @Inject constructor(
         _state.update { it.copy(gamePin = null, gameId = null) }
     }
 
+    /** Navigate to JoinGameScreen (enter PIN). */
+    fun enterJoinGame() {
+        _state.update { it.copy(showJoinGameScreen = true, error = "") }
+    }
+
+    /** Returns from JoinGameScreen to main menu. */
+    fun backFromJoinGame() {
+        _state.update { it.copy(showJoinGameScreen = false, error = "") }
+    }
+
+    /** Tries to join a game with the given 4-digit PIN. On success, navigates to CurrentGameScreen. */
+    fun joinGame(pin: String) {
+        val address = _state.value.userAddress
+        if (address.isEmpty()) return
+        val trimmedPin = pin.take(4).filter { it.isDigit() }
+        if (trimmedPin.length != 4) {
+            _state.update { it.copy(error = "PIN must be 4 digits") }
+            return
+        }
+        viewModelScope.launch {
+            _state.update { it.copy(isLoading = true, error = "") }
+            gameApiUseCase.joinGame(trimmedPin, address)
+                .onSuccess { result ->
+                    _state.update {
+                        it.copy(
+                            isLoading = false,
+                            showJoinGameScreen = false,
+                            joinedGameId = result.gameId,
+                            error = ""
+                        )
+                    }
+                }
+                .onFailure { e ->
+                    _state.update {
+                        it.copy(
+                            isLoading = false,
+                            error = e.message ?: "Failed to join game"
+                        )
+                    }
+                }
+        }
+    }
+
+    /** Returns from CurrentGameScreen to main menu. */
+    fun backFromCurrentGame() {
+        _state.update { it.copy(joinedGameId = null) }
+    }
+
     fun disconnect(sender: ActivityResultSender) {
         val conn = persistanceUseCase.getWalletConnection()
         if (conn is Connected) {
@@ -163,7 +215,9 @@ class SampleViewModel @Inject constructor(
                     memoTx = "",
                     error = "",
                     gamePin = null,
-                    gameId = null
+                    gameId = null,
+                    showJoinGameScreen = false,
+                    joinedGameId = null
                 ).updateViewState()
             }
         }

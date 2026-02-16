@@ -15,6 +15,19 @@ use uuid::Uuid;
 
 use crate::error::ApiError;
 
+/// Request body for joining an existing game by PIN.
+#[derive(Deserialize)]
+pub struct JoinGameRequest {
+    pub pin: String,
+    pub joiner_pubkey: String,
+}
+
+/// Response when joining a game successfully.
+#[derive(Serialize)]
+pub struct JoinGameResponse {
+    pub game_id: String,
+}
+
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Game {
     #[serde(rename = "_id")]
@@ -121,8 +134,76 @@ async fn create_game(
     Ok(Json(CreateGameResponse { game_id, pin }))
 }
 
+async fn join_game(
+    State(state): State<AppState>,
+    Json(body): Json<JoinGameRequest>,
+) -> Result<Json<JoinGameResponse>, ApiError> {
+    let pin = body.pin.trim();
+    let joiner_pubkey = body.joiner_pubkey.trim();
+    if pin.len() != 4 || !pin.chars().all(|c| c.is_ascii_digit()) {
+        log::warn!("Join game rejected: invalid pin (must be 4 digits)");
+        return Err(ApiError::bad_request("pin must be 4 digits"));
+    }
+    if joiner_pubkey.is_empty() {
+        log::warn!("Join game rejected: missing joiner_pubkey");
+        return Err(ApiError::bad_request("joiner_pubkey is required"));
+    }
+
+    let games = state.db.collection::<Game>("games");
+    let users = state.db.collection::<User>("users");
+
+    // Ensure joiner exists in users
+    users
+        .update_one(
+            doc! { "pubkey": joiner_pubkey },
+            doc! { "$setOnInsert": { "pubkey": joiner_pubkey } },
+            mongodb::options::UpdateOptions::builder()
+                .upsert(true)
+                .build(),
+        )
+        .await
+        .map_err(|e| {
+            log::error!("Failed to upsert joiner user: {}", e);
+            ApiError::internal(e.to_string())
+        })?;
+
+    let filter = doc! {
+        "pin": pin,
+        "joiner_pubkey": null,
+        "status": "waiting"
+    };
+    let update = doc! {
+        "$set": {
+            "joiner_pubkey": joiner_pubkey,
+            "status": "active"
+        }
+    };
+    let opts = mongodb::options::FindOneAndUpdateOptions::builder()
+        .return_document(mongodb::options::ReturnDocument::After)
+        .build();
+    let updated = games
+        .find_one_and_update(filter, update, opts)
+        .await
+        .map_err(|e| {
+            log::error!("Failed to join game: {}", e);
+            ApiError::internal(e.to_string())
+        })?;
+
+    match updated {
+        Some(game) => {
+            log::info!("Game joined game_id={} joiner_pubkey={}", game.id, joiner_pubkey);
+            Ok(Json(JoinGameResponse { game_id: game.id }))
+        }
+        None => {
+            log::warn!("Join game failed: no waiting game for pin");
+            Err(ApiError::not_found("No game found for this PIN or game is full"))
+        }
+    }
+}
+
 pub fn games_routes(state: AppState) -> Router {
     Router::new()
-        .route("/games", post(create_game))
+        .route("/games/create", post(create_game))
+        .route("/games/join", post(join_game))
         .with_state(state)
 }
