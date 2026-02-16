@@ -16,4 +16,6 @@ pub enum EscrowError {
     InsufficientBalance,
     #[msg("Winner must be creator or joiner")]
     InvalidWinner,
+    #[msg("Unauthorized: signer is not the resolve authority")]
+    Unauthorized,
 }

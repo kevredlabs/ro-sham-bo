@@ -1,4 +1,4 @@
-//! Create game escrow: creator deposits `amount` lamports.
+//! Create game escrow: creator deposits `amount` lamports (1 SOL = 10^9 lamports).
 //! PDA seeds: ["game_escrow", creator, game_id].
 
 use anchor_lang::prelude::*;
