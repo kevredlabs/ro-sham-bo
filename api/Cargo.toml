@@ -9,8 +9,14 @@ axum = "0.7"
 tokio = { version = "1", features = ["full"] }
 tower-http = { version = "0.5", features = ["cors"] }
 serde = { version = "1", features = ["derive"] }
+serde_json = "1"
 uuid = { version = "1", features = ["v4", "serde"] }
 rand = "0.8"
 mongodb = "2.8"
 log = "0.4"
 env_logger = "0.11"
+
+# Solana devnet program (rps-escrow). Anchor recommends Solana 2.x (2.0.x aligns client + sdk).
+solana-client = "2.0"
+solana-sdk = "2.0"
+sha2 = "0.10"

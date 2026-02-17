@@ -23,7 +23,7 @@ declare_id!("F4d4VwBaQrqf5hUZs74XoiVCAo76BpeRSqABxMMzG7kN");
 
 /// Only this pubkey can call `resolve`. Set to your backend authority keypair's public key.
 /// Change by upgrading the program if needed.
-pub const RESOLVE_AUTHORITY: Pubkey = pubkey!("urAKh83tZRMp248mt94g2rNqcuo45SaxJoTPUit381p");
+pub const RESOLVE_AUTHORITY: Pubkey = pubkey!("GVEseebBBBL1aykkpM2J3opBHkdGjYSdKNEdR68kfQkF");
 
 
 #[program]

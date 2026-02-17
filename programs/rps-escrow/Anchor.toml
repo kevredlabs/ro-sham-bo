@@ -8,12 +8,16 @@ skip-lint = false
 [programs.localnet]
 rps_escrow = "F4d4VwBaQrqf5hUZs74XoiVCAo76BpeRSqABxMMzG7kN"
 
+[programs.devnet]
+rps_escrow = "F4d4VwBaQrqf5hUZs74XoiVCAo76BpeRSqABxMMzG7kN"
+
 [registry]
 url = "https://api.apr.dev"
 
+# Use "localnet" for local tests, "devnet" for devnet deployment
 [provider]
 cluster = "localnet"
-wallet = "~/.config/solana/id.json"
+wallet = "resolve_authority.json"
 
 [scripts]
 test = "yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/**/*.ts"

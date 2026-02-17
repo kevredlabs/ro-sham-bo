@@ -14,6 +14,7 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::error::ApiError;
+use crate::solana::SolanaAppClient;
 
 /// Path parameter for game ID.
 #[derive(Deserialize)]
@@ -88,10 +89,11 @@ pub struct CreateGameResponse {
     pub pin: String,
 }
 
-/// Shared state for routes: MongoDB database.
+/// Shared state for routes: MongoDB database and optional Solana client for resolve.
 #[derive(Clone)]
 pub struct AppState {
     pub db: Database,
+    pub solana: Option<SolanaAppClient>,
 }
 
 /// Generates a 4-digit numeric PIN (0000-9999).
@@ -298,8 +300,40 @@ async fn submit_choice(
                 log::error!("Failed to set winner: {}", e);
                 ApiError::internal(e.to_string())
             })?;
-        game.winner_pubkey = winner_pubkey;
+        game.winner_pubkey = winner_pubkey.clone();
         game.status = status;
+
+        // Resolve on-chain: send escrow SOL to winner (if API has resolve authority configured).
+        if let Some(ref winner) = winner_pubkey {
+            if let Some(ref solana) = state.solana {
+                if solana.can_resolve() {
+                    let game_id_bytes = uuid::Uuid::parse_str(&path.game_id)
+                        .ok()
+                        .map(|u| *u.as_bytes());
+                    if let Some(gid) = game_id_bytes {
+                        match solana.resolve(gid, &game.creator_pubkey, winner) {
+                            Ok(res) => {
+                                log::info!(
+                                    "Game resolved on-chain game_id={} winner={} sig={}",
+                                    path.game_id,
+                                    winner,
+                                    res.signature
+                                );
+                            }
+                            Err(e) => {
+                                log::error!(
+                                    "On-chain resolve failed game_id={} winner={}: {}",
+                                    path.game_id,
+                                    winner,
+                                    e
+                                );
+                                // Game is still marked finished in DB; client may retry or handle
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 
     log::info!("Choice submitted game_id={} pubkey={} choice={}", path.game_id, pubkey, choice);

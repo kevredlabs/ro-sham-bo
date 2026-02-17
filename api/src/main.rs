@@ -1,6 +1,7 @@
 use seeker_rps_api::config::Config;
 use seeker_rps_api::games::{games_routes, AppState};
 use seeker_rps_api::health;
+use seeker_rps_api::solana::SolanaAppClient;
 use std::net::SocketAddr;
 use tower_http::cors::{Any, CorsLayer};
 
@@ -14,7 +15,13 @@ async fn main() {
         .await
         .expect("MongoDB connection failed");
     let db = client.database(&config.db_name);
-    let state = AppState { db };
+    let solana = Some(SolanaAppClient::from_config(&config));
+    if solana.as_ref().map(|s| s.can_resolve()).unwrap_or(false) {
+        log::info!("Solana devnet: resolve enabled (program {})", config.rps_escrow_program_id);
+    } else {
+        log::info!("Solana devnet: resolve disabled (set RESOLVE_AUTHORITY_KEYPAIR_PATH to enable)");
+    }
+    let state = AppState { db, solana };
     log::info!("MongoDB connected");
 
     let cors = CorsLayer::new()
