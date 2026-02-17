@@ -108,13 +108,11 @@ pub struct SolanaAppClient {
 
 impl SolanaAppClient {
     pub fn from_config(config: &Config) -> Self {
-        let resolve_authority = config
-            .resolve_authority_keypair_path
-            .as_ref()
-            .and_then(|path| load_keypair(path).ok())
+        let resolve_authority = load_keypair(&config.resolve_authority_keypair_path)
+            .ok()
             .map(Arc::new);
 
-        if resolve_authority.is_none() && config.resolve_authority_keypair_path.is_some() {
+        if resolve_authority.is_none() {
             log::warn!(
                 "RESOLVE_AUTHORITY_KEYPAIR_PATH set but keypair failed to load; on-chain resolve disabled"
             );
