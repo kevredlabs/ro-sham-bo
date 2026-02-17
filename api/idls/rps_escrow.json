@@ -1,0 +1,322 @@
+{
+  "address": "F4d4VwBaQrqf5hUZs74XoiVCAo76BpeRSqABxMMzG7kN",
+  "metadata": {
+    "name": "rps_escrow",
+    "version": "0.1.0",
+    "spec": "0.1.0",
+    "description": "Created with Anchor"
+  },
+  "instructions": [
+    {
+      "name": "create_game",
+      "docs": [
+        "Creator creates a game escrow and deposits `amount` lamports. `game_id` = 16 bytes (UUID without hyphens, hex)."
+      ],
+      "discriminator": [
+        124,
+        69,
+        75,
+        66,
+        184,
+        220,
+        72,
+        206
+      ],
+      "accounts": [
+        {
+          "name": "creator",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "game_escrow",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  97,
+                  109,
+                  101,
+                  95,
+                  101,
+                  115,
+                  99,
+                  114,
+                  111,
+                  119
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "creator"
+              },
+              {
+                "kind": "arg",
+                "path": "game_id"
+              }
+            ]
+          }
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "game_id",
+          "type": {
+            "array": [
+              "u8",
+              16
+            ]
+          }
+        },
+        {
+          "name": "amount",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "join_game",
+      "docs": [
+        "Joiner deposits the same amount as the creator into the escrow."
+      ],
+      "discriminator": [
+        107,
+        112,
+        18,
+        38,
+        56,
+        173,
+        60,
+        128
+      ],
+      "accounts": [
+        {
+          "name": "joiner",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "game_escrow",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  97,
+                  109,
+                  101,
+                  95,
+                  101,
+                  115,
+                  99,
+                  114,
+                  111,
+                  119
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "game_escrow.creator",
+                "account": "GameEscrow"
+              },
+              {
+                "kind": "account",
+                "path": "game_escrow.game_id",
+                "account": "GameEscrow"
+              }
+            ]
+          }
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "resolve",
+      "docs": [
+        "Authority resolves the game: full payout to winner, then closes the escrow."
+      ],
+      "discriminator": [
+        246,
+        150,
+        236,
+        206,
+        108,
+        63,
+        58,
+        10
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "docs": [
+            "Authority that can resolve (e.g. backend). In production, restrict to a known key."
+          ],
+          "signer": true
+        },
+        {
+          "name": "game_escrow",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  97,
+                  109,
+                  101,
+                  95,
+                  101,
+                  115,
+                  99,
+                  114,
+                  111,
+                  119
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "game_escrow.creator",
+                "account": "GameEscrow"
+              },
+              {
+                "kind": "account",
+                "path": "game_escrow.game_id",
+                "account": "GameEscrow"
+              }
+            ]
+          }
+        },
+        {
+          "name": "winner_destination",
+          "docs": [
+            "Receives the full escrow balance (all lamports) when the account is closed.",
+            "Must be the winner's system account (winner must be creator or joiner)."
+          ],
+          "writable": true
+        }
+      ],
+      "args": [
+        {
+          "name": "winner",
+          "type": "pubkey"
+        }
+      ]
+    }
+  ],
+  "accounts": [
+    {
+      "name": "GameEscrow",
+      "discriminator": [
+        37,
+        195,
+        2,
+        234,
+        81,
+        128,
+        248,
+        133
+      ]
+    }
+  ],
+  "errors": [
+    {
+      "code": 6000,
+      "name": "InvalidAmount",
+      "msg": "Amount must be greater than zero"
+    },
+    {
+      "code": 6001,
+      "name": "AlreadyResolved",
+      "msg": "Game already resolved"
+    },
+    {
+      "code": 6002,
+      "name": "JoinerAlreadySet",
+      "msg": "Joiner already set"
+    },
+    {
+      "code": 6003,
+      "name": "NoJoiner",
+      "msg": "No joiner has deposited yet"
+    },
+    {
+      "code": 6004,
+      "name": "InsufficientBalance",
+      "msg": "Insufficient balance in escrow"
+    },
+    {
+      "code": 6005,
+      "name": "InvalidWinner",
+      "msg": "Winner must be creator or joiner"
+    },
+    {
+      "code": 6006,
+      "name": "Unauthorized",
+      "msg": "Unauthorized: signer is not the resolve authority"
+    }
+  ],
+  "types": [
+    {
+      "name": "GameEscrow",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "creator",
+            "type": "pubkey"
+          },
+          {
+            "name": "game_id",
+            "docs": [
+              "MongoDB game _id as 16 bytes (UUID without hyphens and 32 hex chars). Matches DB field _id."
+            ],
+            "type": {
+              "array": [
+                "u8",
+                16
+              ]
+            }
+          },
+          {
+            "name": "joiner",
+            "type": {
+              "option": "pubkey"
+            }
+          },
+          {
+            "name": "amount_per_player",
+            "type": "u64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          },
+          {
+            "name": "resolved",
+            "type": "bool"
+          },
+          {
+            "name": "winner",
+            "type": {
+              "option": "pubkey"
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

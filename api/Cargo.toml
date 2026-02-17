@@ -16,7 +16,9 @@ mongodb = "2.8"
 log = "0.4"
 env_logger = "0.11"
 
-# Solana devnet program (rps-escrow). Anchor recommends Solana 2.x (2.0.x aligns client + sdk).
+# Solana devnet program (rps-escrow). Client generated from IDL via declare_program!
+anchor-client = { version = "0.32.1", features = ["async"] }
+anchor-lang = "0.32.1"
+anchor-attribute-program = "0.32.1"
 solana-client = "2.0"
 solana-sdk = "2.0"
-sha2 = "0.10"

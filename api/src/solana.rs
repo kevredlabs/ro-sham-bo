@@ -1,62 +1,36 @@
 //! Interaction with the rps-escrow program on Solana devnet.
 //!
-//! - Derives game escrow PDA and builds the **resolve** instruction.
-//! - The API signs resolve with the resolve authority keypair when a game ends.
+//! Follows [Anchor Rust client](https://www.anchor-lang.com/docs/clients/rust): IDL-generated
+//! client to build instructions. Send via RpcClient so the handler stays Send (keypair is !Send).
 
-use sha2::{Digest, Sha256};
+use anchor_attribute_program::declare_program;
+use anchor_client::Client;
+use anchor_lang::prelude::Pubkey;
 use solana_client::rpc_client::RpcClient;
 use solana_sdk::{
     commitment_config::CommitmentConfig,
-    instruction::{AccountMeta, Instruction},
-    pubkey::Pubkey,
     signature::{Keypair, Signer},
     transaction::Transaction,
 };
+use std::rc::Rc;
 use std::str::FromStr;
 use std::sync::Arc;
 
 use crate::config::Config;
 
-/// RPS escrow program id (devnet). Must match `declare_id!` in the program.
-pub fn program_id() -> Pubkey {
-    Pubkey::from_str("F4d4VwBaQrqf5hUZs74XoiVCAo76BpeRSqABxMMzG7kN").expect("program id")
-}
+declare_program!(rps_escrow);
 
-/// Anchor instruction discriminator: first 8 bytes of sha256("global:<name>").
-fn instruction_discriminator(name: &str) -> [u8; 8] {
-    let preimage = format!("global:{}", name);
-    let hash = Sha256::digest(preimage.as_bytes());
-    let mut disc = [0u8; 8];
-    disc.copy_from_slice(&hash[..8]);
-    disc
+use rps_escrow::client::{accounts, args};
+
+/// RPS escrow program id (from IDL). Use for PDA derivation when not using the full client.
+pub fn program_id() -> Pubkey {
+    rps_escrow::ID
 }
 
 /// PDA seeds for game escrow: `["game_escrow", creator, game_id]`.
 pub fn game_escrow_pda(program_id: &Pubkey, creator: &Pubkey, game_id: &[u8; 16]) -> Pubkey {
     let seeds: &[&[u8]] = &[b"game_escrow", creator.as_ref(), game_id.as_ref()];
     Pubkey::find_program_address(seeds, program_id).0
-}
-
-/// Builds the **resolve** instruction: authority pays winner and closes escrow.
-fn build_resolve_instruction(
-    program_id: Pubkey,
-    authority: &Pubkey,
-    game_escrow: Pubkey,
-    winner_destination: Pubkey,
-    winner: Pubkey,
-) -> Instruction {
-    let mut data = instruction_discriminator("resolve").to_vec();
-    data.extend_from_slice(winner.as_ref());
-
-    Instruction {
-        program_id,
-        accounts: vec![
-            AccountMeta::new_readonly(*authority, true),
-            AccountMeta::new(game_escrow, false),
-            AccountMeta::new(winner_destination, false),
-        ],
-        data,
-    }
 }
 
 /// Load keypair from a JSON file (array of 64 bytes).
@@ -72,11 +46,11 @@ pub struct ResolveResult {
     pub signature: String,
 }
 
-/// Calls the rps-escrow **resolve** instruction on devnet.
+/// Calls the rps-escrow **resolve** instruction on devnet using the IDL-generated client.
+/// Builds the instruction with the client (Anchor doc pattern); sends with RpcClient so the handler stays Send.
 /// `game_id` must be the 16-byte UUID (no hyphens). `creator_pubkey` and `winner_pubkey` are base58.
 pub fn resolve_game(
     rpc_url: &str,
-    program_id: Pubkey,
     authority_keypair: &Keypair,
     game_id: [u8; 16],
     creator_pubkey: &str,
@@ -85,30 +59,40 @@ pub fn resolve_game(
     let creator = Pubkey::from_str(creator_pubkey).map_err(|e| e.to_string())?;
     let winner = Pubkey::from_str(winner_pubkey).map_err(|e| e.to_string())?;
 
-    let client = RpcClient::new_with_commitment(
-        rpc_url.to_string(),
-        CommitmentConfig::confirmed(),
+    let commitment = CommitmentConfig::confirmed();
+    let client = Client::new_with_options(
+        anchor_client::Cluster::Custom(rpc_url.to_string(), rpc_url.to_string()),
+        Rc::new(authority_keypair),
+        commitment,
     );
+    let program = client.program(rps_escrow::ID).map_err(|e| e.to_string())?;
 
-    let game_escrow = game_escrow_pda(&program_id, &creator, &game_id);
+    let game_escrow = game_escrow_pda(&rps_escrow::ID, &creator, &game_id);
 
-    let ix = build_resolve_instruction(
-        program_id,
-        &authority_keypair.pubkey(),
-        game_escrow,
-        winner,
-        winner,
-    );
+    let resolve_ix = program
+        .request()
+        .accounts(accounts::Resolve {
+            authority: authority_keypair.pubkey(),
+            game_escrow,
+            winner_destination: winner,
+        })
+        .args(args::Resolve { winner })
+        .instructions()
+        .map_err(|e| e.to_string())?
+        .into_iter()
+        .next()
+        .ok_or_else(|| "resolve instruction missing".to_string())?;
 
-    let recent_blockhash = client.get_latest_blockhash().map_err(|e| e.to_string())?;
+    let rpc = RpcClient::new_with_commitment(rpc_url.to_string(), commitment);
+    let recent_blockhash = rpc.get_latest_blockhash().map_err(|e| e.to_string())?;
     let tx = Transaction::new_signed_with_payer(
-        &[ix],
+        &[resolve_ix],
         Some(&authority_keypair.pubkey()),
         &[authority_keypair],
         recent_blockhash,
     );
 
-    let sig = client.send_and_confirm_transaction(&tx).map_err(|e| e.to_string())?;
+    let sig = rpc.send_and_confirm_transaction(&tx).map_err(|e| e.to_string())?;
     Ok(ResolveResult {
         signature: sig.to_string(),
     })
@@ -161,7 +145,6 @@ impl SolanaAppClient {
             .ok_or_else(|| "resolve authority keypair not configured".to_string())?;
         resolve_game(
             &self.rpc_url,
-            self.program_id,
             authority.as_ref(),
             game_id,
             creator_pubkey,
