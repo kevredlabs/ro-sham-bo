@@ -1,5 +1,6 @@
 package com.solanamobile.ktxclientsample.viewmodel
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.solana.mobilewalletadapter.clientlib.ActivityResultSender
@@ -9,14 +10,15 @@ import com.solana.mobilewalletadapter.clientlib.TransactionResult
 import com.solana.mobilewalletadapter.clientlib.protocol.MobileWalletAdapterClient.AuthorizationResult
 import com.solana.mobilewalletadapter.clientlib.successPayload
 import com.solana.mobilewalletadapter.common.signin.SignInWithSolana
-import com.solana.programs.MemoProgram
 import com.solana.publickey.SolanaPublicKey
 import com.solana.transaction.Message
-import com.solana.transaction.toUnsignedTransaction
+import com.solana.transaction.Transaction
+import com.solanamobile.ktxclientsample.config.SolanaConfig
 import com.solanamobile.ktxclientsample.usecase.Connected
 import com.solanamobile.ktxclientsample.usecase.GameApiUseCase
 import com.solanamobile.ktxclientsample.usecase.NotConnected
 import com.solanamobile.ktxclientsample.usecase.PersistanceUseCase
+import com.solanamobile.ktxclientsample.usecase.EscrowUseCase
 import com.solanamobile.ktxclientsample.usecase.SolanaRpcUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.delay
@@ -29,12 +31,11 @@ import kotlinx.coroutines.withContext
 import org.bitcoinj.base.Base58
 import javax.inject.Inject
 
-data class SampleViewState(
+data class GameViewState(
     val isLoading: Boolean = false,
     val solBalance: Double = 0.0,
     val userAddress: String = "",
     val userLabel: String = "",
-    val memoTx: String = "",
     val error: String = "",
     val walletFound: Boolean = true,
     /** When non-null, show NewGameScreen with this PIN (game was just created). */
@@ -53,20 +54,21 @@ data class SampleViewState(
 )
 
 @HiltViewModel
-class SampleViewModel @Inject constructor(
+class GameViewModel @Inject constructor(
     private val walletAdapter: MobileWalletAdapter,
     private val solanaRpcUseCase: SolanaRpcUseCase,
     private val persistanceUseCase: PersistanceUseCase,
-    private val gameApiUseCase: GameApiUseCase
+    private val gameApiUseCase: GameApiUseCase,
+    private val escrowUseCase: EscrowUseCase
 ): ViewModel() {
 
-    private fun SampleViewState.updateViewState() {
+    private fun GameViewState.updateViewState() {
         _state.update { this }
     }
 
-    private val _state = MutableStateFlow(SampleViewState())
+    private val _state = MutableStateFlow(GameViewState())
 
-    val viewState: StateFlow<SampleViewState>
+    val viewState: StateFlow<GameViewState>
         get() = _state
 
     fun loadConnection() {
@@ -85,75 +87,131 @@ class SampleViewModel @Inject constructor(
         }
     }
 
-    fun addFunds() {
-        check(persistanceUseCase.getWalletConnection() is Connected) {
-            "Cannot add funds, no wallet connected"
-        }
-        viewModelScope.launch {
-            requestAirdrop(persistanceUseCase.connected.publicKey)
-        }
-    }
-
-    fun publishMemo(sender: ActivityResultSender, memoText: String) {
-        viewModelScope.launch {
-            connect(sender) { authResult ->
-                withContext(Dispatchers.IO) {
-                    val publicKey = SolanaPublicKey(authResult.accounts.first().publicKey)
-                    val blockHash = solanaRpcUseCase.getLatestBlockHash()
-
-                    val tx = Message.Builder()
-                        .setRecentBlockhash(blockHash)
-                        .addInstruction(MemoProgram.publishMemo(publicKey, memoText))
-                        .build().toUnsignedTransaction()
-
-                    val bytes = tx.serialize()
-                    val sig = signAndSendTransactions(arrayOf(bytes)).signatures.firstOrNull()
-                    Base58.encode(sig)
-                }
-            }.successPayload?.let { readableSig ->
-                _state.value.copy(
-                    isLoading = false,
-                    memoTx = readableSig
-                ).updateViewState()
-            }
-        }
-    }
-
     fun signIn(sender: ActivityResultSender) {
         viewModelScope.launch {
             connect(sender) {}
             // Note: should check the signature here of the signInResult to verify it matches the
-            // account and expected signed message. This is left as an exercise for the reader.
+            // account and expected signed message.
         }
     }
 
-    /** Creates a new game on the API and navigates to NewGameScreen with the 4-digit PIN. */
-    fun startNewGame() {
+    /**
+     * Creates a new game: 1) API create (game_id, pin), 2) build create_game instruction,
+     * 3) wallet signs and sends tx via Mobile Wallet Adapter, 4) on success show PIN screen.
+     * Call with [sender] from the current Activity (e.g. intentSender in AppContent).
+     */
+    fun startNewGame(sender: ActivityResultSender) {
         val address = _state.value.userAddress
-        if (address.isEmpty()) return
+        if (address.isEmpty()) {
+            Log.w(TAG, "startNewGame: no wallet connected")
+            _state.update { it.copy(error = "Connect wallet first") }
+            return
+        }
         viewModelScope.launch {
+            Log.d(TAG, "startNewGame: creating game via API for $address")
             _state.update { it.copy(isLoading = true, error = "") }
-            gameApiUseCase.createGame(address)
-                .onSuccess { result ->
-                    _state.update {
-                        it.copy(
-                            isLoading = false,
-                            gamePin = result.pin,
-                            gameId = result.gameId,
-                            error = ""
-                        )
-                    }
-                    startPollingGameState(result.gameId)
-                }
+            val apiResult = gameApiUseCase.createGame(address)
+            apiResult
                 .onFailure { e ->
+                    Log.e(TAG, "startNewGame: API create failed", e)
                     _state.update {
                         it.copy(
                             isLoading = false,
                             error = e.message ?: "Failed to create game"
                         )
                     }
+                    return@launch
                 }
+            val result = apiResult.getOrNull() ?: return@launch
+            val gameId = result.gameId
+            val pin = result.pin
+            Log.d(TAG, "startNewGame: API ok gameId=$gameId pin=$pin")
+            val gameIdBytes = escrowUseCase.gameIdToBytes(gameId)
+            if (gameIdBytes == null) {
+                Log.e(TAG, "startNewGame: invalid game_id from API")
+                _state.update {
+                    it.copy(isLoading = false, error = "Invalid game id from API")
+                }
+                return@launch
+            }
+            val creator = SolanaPublicKey.from(address)
+            val createGameIx = escrowUseCase.buildCreateGameInstruction(
+                creator,
+                gameIdBytes,
+                SolanaConfig.DEFAULT_CREATE_GAME_AMOUNT_LAMPORTS
+            )
+            if (createGameIx == null) {
+                Log.e(TAG, "startNewGame: buildCreateGameInstruction returned null")
+                _state.update {
+                    it.copy(isLoading = false, error = "Failed to build create_game instruction")
+                }
+                return@launch
+            }
+            Log.d(TAG, "startNewGame: instruction built, opening wallet session")
+            try {
+                val txResult = connect(sender) { authResult ->
+                    withContext(Dispatchers.IO) {
+                        Log.d(TAG, "startNewGame: fetching latest blockhash before building tx")
+                        val blockHash = solanaRpcUseCase.getLatestBlockHash()
+                        Log.d(TAG, "startNewGame: blockhash=$blockHash, building transaction")
+                        val createGameMessage = Message.Builder()
+                            .addInstruction(createGameIx)
+                            .setRecentBlockhash(blockHash)
+                            .build()
+                        val unsignedCreateGameTx = Transaction(createGameMessage)
+                        Log.d(TAG, "startNewGame: sending transaction to wallet (signAndSendTransactions)")
+                        signAndSendTransactions(arrayOf(unsignedCreateGameTx.serialize()))
+                    }
+                }
+                Log.d(TAG, "startNewGame: connect returned result=${txResult::class.simpleName}" + (if (txResult is TransactionResult.Failure) " message=${txResult.message}" else ""))
+                when (txResult) {
+                    is TransactionResult.Success -> {
+                        val txSignatureBytes = txResult.successPayload?.signatures?.first()
+                        txSignatureBytes?.let {
+                            Log.i(TAG, "startNewGame: tx success signature=${Base58.encode(it)}")
+                            _state.update {
+                                it.copy(
+                                    isLoading = false,
+                                    gamePin = pin,
+                                    gameId = gameId,
+                                    error = ""
+                                )
+                            }
+                            startPollingGameState(gameId)
+                        } ?: run {
+                            Log.w(TAG, "startNewGame: Success but no signature in payload")
+                            _state.update {
+                                it.copy(isLoading = false, error = "Transaction sent but no signature")
+                            }
+                        }
+                    }
+                    is TransactionResult.NoWalletFound -> {
+                        Log.w(TAG, "startNewGame: NoWalletFound ${txResult.message}")
+                        _state.update {
+                            it.copy(isLoading = false, walletFound = false, error = txResult.message)
+                        }
+                    }
+                    is TransactionResult.Failure -> {
+                        Log.e(TAG, "startNewGame: Failure message=${txResult.message}")
+                        _state.update {
+                            it.copy(isLoading = false, error = txResult.message)
+                        }
+                    }
+                }
+            } catch (e: Throwable) {
+                Log.e(TAG, "startNewGame: exception during connect/signAndSend", e)
+                _state.update {
+                    it.copy(
+                        isLoading = false,
+                        error = e.message ?: "Transaction failed: ${e.javaClass.simpleName}"
+                    )
+                }
+            }
         }
+    }
+
+    private companion object {
+        const val TAG = "SeekerRPS"
     }
 
     /** Returns from NewGameScreen (waiting) to main menu. Stops polling. */
@@ -338,14 +396,17 @@ class SampleViewModel @Inject constructor(
         if (conn is Connected) {
             viewModelScope.launch {
                 persistanceUseCase.clearConnection()
-                walletAdapter.disconnect(sender)
+                val disconnectError = when (val result = walletAdapter.disconnect(sender)) {
+                    is TransactionResult.Success -> null
+                    is TransactionResult.NoWalletFound -> null
+                    is TransactionResult.Failure -> result.message
+                }
                 _state.value.copy(
                     isLoading = false,
                     solBalance = 0.0,
                     userAddress = "",
                     userLabel = "",
-                    memoTx = "",
-                    error = "",
+                    error = disconnectError ?: "",
                     gamePin = null,
                     gameId = null,
                     showJoinGameScreen = false,
@@ -363,13 +424,12 @@ class SampleViewModel @Inject constructor(
         withContext(viewModelScope.coroutineContext) {
             _state.value.copy(
                 isLoading = true,
-                memoTx = "",
                 error = ""
             ).updateViewState()
             val conn = persistanceUseCase.getWalletConnection()
             return@withContext walletAdapter.transact(sender,
                 if (conn is NotConnected) SignInWithSolana.Payload("solana.com",
-                    "Sign in to Ktx Sample App") else null) {
+                    "Sign in to Seeker RPS") else null) {
                 block(it)
             }.also { result ->
                 when (result) {
@@ -408,24 +468,4 @@ class SampleViewModel @Inject constructor(
             }
         }
 
-    private suspend fun requestAirdrop(publicKey: SolanaPublicKey) {
-        try {
-            val tx = solanaRpcUseCase.requestAirdrop(publicKey)
-            val confirmed = solanaRpcUseCase.awaitConfirmationAsync(tx).await()
-
-            if (confirmed) {
-                _state.value.copy(
-                    isLoading = false,
-                    solBalance = solanaRpcUseCase.getBalance(publicKey)
-                ).updateViewState()
-            }
-        } catch (e: Throwable) {
-            _state.value.copy(
-                userAddress = "Error airdropping",
-                userLabel = "",
-            ).updateViewState()
-        }
-
-        _state.value.copy(isLoading = false).updateViewState()
-    }
 }

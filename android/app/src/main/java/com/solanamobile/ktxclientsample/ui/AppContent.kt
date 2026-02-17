@@ -5,7 +5,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.solana.mobilewalletadapter.clientlib.ActivityResultSender
-import com.solanamobile.ktxclientsample.viewmodel.SampleViewModel
+import com.solanamobile.ktxclientsample.viewmodel.GameViewModel
 
 /**
  * Root content: shows wallet connect screen when not connected,
@@ -14,7 +14,7 @@ import com.solanamobile.ktxclientsample.viewmodel.SampleViewModel
 @Composable
 fun AppContent(
     intentSender: ActivityResultSender,
-    viewModel: SampleViewModel = hiltViewModel()
+    viewModel: GameViewModel = hiltViewModel()
 ) {
     val viewState = viewModel.viewState.collectAsState().value
     val isConnected = viewState.userAddress.isNotEmpty()
@@ -48,7 +48,7 @@ fun AppContent(
                 userAddress = viewState.userAddress,
                 solBalance = viewState.solBalance,
                 network = "Devnet",
-                onNewGame = { viewModel.startNewGame() },
+                onNewGame = { viewModel.startNewGame(intentSender) },
                 onJoinGame = { viewModel.enterJoinGame() },
                 onDisconnect = { viewModel.disconnect(intentSender) }
             )

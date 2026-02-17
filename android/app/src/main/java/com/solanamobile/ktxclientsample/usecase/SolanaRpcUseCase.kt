@@ -1,5 +1,6 @@
 package com.solanamobile.ktxclientsample.usecase
 
+import com.solanamobile.ktxclientsample.config.SolanaConfig
 import com.solana.networking.KtorNetworkDriver
 import com.solana.publickey.SolanaPublicKey
 import com.solana.rpc.Commitment
@@ -17,15 +18,8 @@ class SolanaRpcUseCase @Inject constructor() {
     private val rpc: SolanaRpcClient
 
     init {
-        rpc = SolanaRpcClient(DEVNET_RPC_URL, KtorNetworkDriver())
+        rpc = SolanaRpcClient(SolanaConfig.RPC_URL, KtorNetworkDriver())
     }
-
-    suspend fun requestAirdrop(pubkey: SolanaPublicKey): String =
-        withContext(Dispatchers.IO) {
-            val result = rpc.requestAirdrop(pubkey,
-                LAMPORTS_PER_AIRDROP/LAMPORTS_PER_SOL.toFloat())
-            result.result ?: throw Error(result.error?.message)
-        }
 
     suspend fun awaitConfirmationAsync(signature: String): Deferred<Boolean> {
         return coroutineScope {
@@ -45,7 +39,7 @@ class SolanaRpcUseCase @Inject constructor() {
             }
 
             if (asReadable) {
-                result.toDouble() / LAMPORTS_PER_SOL.toDouble()
+                result.toDouble() / SolanaConfig.LAMPORTS_PER_SOL.toDouble()
             } else {
                 result.toDouble()
             }
@@ -59,8 +53,6 @@ class SolanaRpcUseCase @Inject constructor() {
         }
 
     companion object {
-        private const val DEVNET_RPC_URL = "https://api.devnet.solana.com"
-        const val LAMPORTS_PER_AIRDROP: Long = 100000000
-        const val LAMPORTS_PER_SOL: Long = 1000000000
+        const val LAMPORTS_PER_SOL: Long = SolanaConfig.LAMPORTS_PER_SOL
     }
 }

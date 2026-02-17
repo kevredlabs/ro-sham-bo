@@ -28,13 +28,13 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.solana.mobilewalletadapter.clientlib.ActivityResultSender
 import com.solanamobile.ktxclientsample.ui.theme.PixelCyan
 import com.solanamobile.ktxclientsample.ui.theme.PixelYellow
-import com.solanamobile.ktxclientsample.viewmodel.SampleViewModel
+import com.solanamobile.ktxclientsample.viewmodel.GameViewModel
 import kotlinx.coroutines.flow.collectLatest
 
 @Composable
 fun WalletConnectScreen(
     intentSender: ActivityResultSender,
-    viewModel: SampleViewModel = hiltViewModel()
+    viewModel: GameViewModel = hiltViewModel()
 ) {
     val viewState = viewModel.viewState.collectAsState().value
     val snackbarHostState = remember { SnackbarHostState() }
