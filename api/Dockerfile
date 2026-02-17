@@ -6,6 +6,7 @@ WORKDIR /app
 # Copy manifests and source
 COPY Cargo.toml Cargo.lock* ./
 COPY src ./src
+COPY idls ./idls
 
 # Build release binary
 RUN cargo build --release
