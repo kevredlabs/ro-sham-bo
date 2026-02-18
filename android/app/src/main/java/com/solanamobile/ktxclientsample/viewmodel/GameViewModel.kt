@@ -13,7 +13,6 @@ import com.solana.mobilewalletadapter.common.signin.SignInWithSolana
 import com.solana.publickey.SolanaPublicKey
 import com.solana.transaction.Message
 import com.solana.transaction.Transaction
-import com.solanamobile.ktxclientsample.config.SolanaConfig
 import com.solanamobile.ktxclientsample.usecase.Connected
 import com.solanamobile.ktxclientsample.usecase.GameApiUseCase
 import com.solanamobile.ktxclientsample.usecase.NotConnected
@@ -135,11 +134,8 @@ class GameViewModel @Inject constructor(
                 return@launch
             }
             val creator = SolanaPublicKey.from(address)
-            val createGameIx = escrowUseCase.buildCreateGameInstruction(
-                creator,
-                gameIdBytes,
-                SolanaConfig.DEFAULT_CREATE_GAME_AMOUNT_LAMPORTS
-            )
+            val createGameIx = escrowUseCase.buildCreateGameInstruction(creator, gameIdBytes)
+            Log.d(TAG, "startNewGame: createGameIx=$createGameIx")
             if (createGameIx == null) {
                 Log.e(TAG, "startNewGame: buildCreateGameInstruction returned null")
                 _state.update {
@@ -158,7 +154,9 @@ class GameViewModel @Inject constructor(
                             .addInstruction(createGameIx)
                             .setRecentBlockhash(blockHash)
                             .build()
+                        
                         val unsignedCreateGameTx = Transaction(createGameMessage)
+                        Log.d(TAG, "startNewGame: unsignedCreateGameTx=${unsignedCreateGameTx.serialize()}")
                         Log.d(TAG, "startNewGame: sending transaction to wallet (signAndSendTransactions)")
                         signAndSendTransactions(arrayOf(unsignedCreateGameTx.serialize()))
                     }

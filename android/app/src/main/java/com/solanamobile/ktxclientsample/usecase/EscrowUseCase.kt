@@ -17,22 +17,20 @@ class EscrowUseCase @Inject constructor() {
 
     /**
      * Builds the create_game instruction for the rps_escrow program.
-     * Creator deposits [amountLamports] into the game escrow PDA.
+     * Creator deposits [SolanaConfig.DEFAULT_CREATE_GAME_AMOUNT_LAMPORTS] into the game escrow PDA.
      *
      * @param creator Creator's public key (signer and fee payer).
      * @param gameIdBytes 16 bytes (UUID without hyphens, same as API game_id).
-     * @param amountLamports Amount to deposit in lamports (e.g. from [SolanaConfig.DEFAULT_CREATE_GAME_AMOUNT_LAMPORTS]).
      * @return TransactionInstruction for create_game, or null if PDA derivation fails.
      */
     suspend fun buildCreateGameInstruction(
         creator: SolanaPublicKey,
-        gameIdBytes: ByteArray,
-        amountLamports: Long
+        gameIdBytes: ByteArray
     ): TransactionInstruction? {
-        Log.d(TAG, "buildCreateGameInstruction: creator=${creator.base58()} gameIdBytes.size=${gameIdBytes.size} amountLamports=$amountLamports")
+        val amount = SolanaConfig.DEFAULT_CREATE_GAME_AMOUNT_LAMPORTS
+        Log.d(TAG, "buildCreateGameInstruction: creator=${creator.base58()} gameIdBytes.size=${gameIdBytes.size} amountLamports=$amount")
         try {
             require(gameIdBytes.size == 16) { "game_id must be 16 bytes" }
-            require(amountLamports > 0) { "amount must be positive" }
         } catch (e: IllegalArgumentException) {
             Log.e(TAG, "buildCreateGameInstruction: validation failed", e)
             throw e
@@ -60,12 +58,13 @@ class EscrowUseCase @Inject constructor() {
         )
 
         // Instruction data: 8-byte Anchor discriminator (create_game) + game_id (16) + amount (u64 LE)
+        // Layout: [0..7] discriminator, [8..23] game_id, [24..31] amount
         val data = ByteArray(8 + 16 + 8).apply {
             SolanaConfig.CREATE_GAME_DISCRIMINATOR.copyInto(this, 0)
             gameIdBytes.copyInto(this, 8)
-            for (i in 0..7) this[16 + i] = (amountLamports shr (i * 8)).toByte()
+            for (i in 0..7) this[24 + i] = ((amount shr (i * 8)) and 0xFFL).toByte()
         }
-        Log.d(TAG, "buildCreateGameInstruction: instruction data size=${data.size} discriminator=${data.take(8).joinToString("") { "%02x".format(it) }} amount=${amountLamports}")
+        Log.d(TAG, "buildCreateGameInstruction: instruction data size=${data.size} discriminator=${data.take(8).joinToString("") { "%02x".format(it) }} amount=$amount")
 
         val instruction = TransactionInstruction(
             SolanaConfig.RPS_ESCROW_PROGRAM_ID,
