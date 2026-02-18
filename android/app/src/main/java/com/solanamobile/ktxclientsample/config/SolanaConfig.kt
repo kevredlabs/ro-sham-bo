@@ -4,7 +4,6 @@ import com.solana.publickey.SolanaPublicKey
 
 /**
  * Central config for Solana RPC and rps_escrow program.
- * Single place to change cluster, program ID, or default bet.
  */
 object SolanaConfig {
 
@@ -27,7 +26,4 @@ object SolanaConfig {
         124.toByte(), 69.toByte(), 75.toByte(), 66.toByte(),
         184.toByte(), 220.toByte(), 72.toByte(), 206.toByte()
     )
-
-    /** Default bet when creating a game (0.1 SOL). */
-    const val DEFAULT_CREATE_GAME_AMOUNT_LAMPORTS: Long = 100_000_000
 }

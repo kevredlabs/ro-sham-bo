@@ -17,18 +17,20 @@ class EscrowUseCase @Inject constructor() {
 
     /**
      * Builds the create_game instruction for the rps_escrow program.
-     * Creator deposits [SolanaConfig.DEFAULT_CREATE_GAME_AMOUNT_LAMPORTS] into the game escrow PDA.
+     * Creator deposits [amountLamports] into the game escrow PDA.
+     * Invalid amount (<= 0) is rejected on-chain by the program.
      *
      * @param creator Creator's public key (signer and fee payer).
      * @param gameIdBytes 16 bytes (UUID without hyphens, same as API game_id).
+     * @param amountLamports Amount to deposit in lamports.
      * @return TransactionInstruction for create_game, or null if PDA derivation fails.
      */
     suspend fun buildCreateGameInstruction(
         creator: SolanaPublicKey,
-        gameIdBytes: ByteArray
+        gameIdBytes: ByteArray,
+        amountLamports: Long
     ): TransactionInstruction? {
-        val amount = SolanaConfig.DEFAULT_CREATE_GAME_AMOUNT_LAMPORTS
-        Log.d(TAG, "buildCreateGameInstruction: creator=${creator.base58()} gameIdBytes.size=${gameIdBytes.size} amountLamports=$amount")
+        Log.d(TAG, "buildCreateGameInstruction: creator=${creator.base58()} gameIdBytes.size=${gameIdBytes.size} amountLamports=$amountLamports")
         try {
             require(gameIdBytes.size == 16) { "game_id must be 16 bytes" }
         } catch (e: IllegalArgumentException) {
@@ -62,9 +64,9 @@ class EscrowUseCase @Inject constructor() {
         val data = ByteArray(8 + 16 + 8).apply {
             SolanaConfig.CREATE_GAME_DISCRIMINATOR.copyInto(this, 0)
             gameIdBytes.copyInto(this, 8)
-            for (i in 0..7) this[24 + i] = ((amount shr (i * 8)) and 0xFFL).toByte()
+            for (i in 0..7) this[24 + i] = ((amountLamports shr (i * 8)) and 0xFFL).toByte()
         }
-        Log.d(TAG, "buildCreateGameInstruction: instruction data size=${data.size} discriminator=${data.take(8).joinToString("") { "%02x".format(it) }} amount=$amount")
+        Log.d(TAG, "buildCreateGameInstruction: instruction data size=${data.size} discriminator=${data.take(8).joinToString("") { "%02x".format(it) }} amount=$amountLamports")
 
         val instruction = TransactionInstruction(
             SolanaConfig.RPS_ESCROW_PROGRAM_ID,

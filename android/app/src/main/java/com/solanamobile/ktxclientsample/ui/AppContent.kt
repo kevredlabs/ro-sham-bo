@@ -38,6 +38,13 @@ fun AppContent(
                 pin = gamePin,
                 onBack = { viewModel.backFromNewGame() }
             )
+            viewState.showNewGameConfigScreen -> NewGameConfigScreen(
+                solBalance = viewState.solBalance,
+                isLoading = viewState.isLoading,
+                error = viewState.error,
+                onCreateGame = { amountLamports -> viewModel.startNewGame(intentSender, amountLamports) },
+                onBack = { viewModel.backFromNewGameConfig() }
+            )
             showJoinGame -> JoinGameScreen(
                 isLoading = viewState.isLoading,
                 error = viewState.error,
@@ -48,7 +55,7 @@ fun AppContent(
                 userAddress = viewState.userAddress,
                 solBalance = viewState.solBalance,
                 network = "Devnet",
-                onNewGame = { viewModel.startNewGame(intentSender) },
+                onNewGame = { viewModel.enterNewGameConfig() },
                 onJoinGame = { viewModel.enterJoinGame() },
                 onDisconnect = { viewModel.disconnect(intentSender) }
             )

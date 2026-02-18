@@ -40,6 +40,8 @@ data class GameViewState(
     /** When non-null, show NewGameScreen with this PIN (game was just created). */
     val gamePin: String? = null,
     val gameId: String? = null,
+    /** When true, show NewGameConfigScreen (set amount then create game). */
+    val showNewGameConfigScreen: Boolean = false,
     /** When true, show JoinGameScreen (enter PIN to join). */
     val showJoinGameScreen: Boolean = false,
     /** When non-null, show CurrentGameScreen (user joined this game). */
@@ -94,12 +96,21 @@ class GameViewModel @Inject constructor(
         }
     }
 
+    /** Opens the New Game config screen (set amount). */
+    fun enterNewGameConfig() {
+        _state.update { it.copy(showNewGameConfigScreen = true, error = "") }
+    }
+
+    /** Returns from New Game config to main menu. */
+    fun backFromNewGameConfig() {
+        _state.update { it.copy(showNewGameConfigScreen = false, error = "") }
+    }
+
     /**
-     * Creates a new game: 1) API create (game_id, pin), 2) build create_game instruction,
+     * Creates a new game: 1) API create (game_id, pin), 2) build create_game instruction with [amountLamports],
      * 3) wallet signs and sends tx via Mobile Wallet Adapter, 4) on success show PIN screen.
-     * Call with [sender] from the current Activity (e.g. intentSender in AppContent).
      */
-    fun startNewGame(sender: ActivityResultSender) {
+    fun startNewGame(sender: ActivityResultSender, amountLamports: Long) {
         val address = _state.value.userAddress
         if (address.isEmpty()) {
             Log.w(TAG, "startNewGame: no wallet connected")
@@ -134,7 +145,7 @@ class GameViewModel @Inject constructor(
                 return@launch
             }
             val creator = SolanaPublicKey.from(address)
-            val createGameIx = escrowUseCase.buildCreateGameInstruction(creator, gameIdBytes)
+            val createGameIx = escrowUseCase.buildCreateGameInstruction(creator, gameIdBytes, amountLamports)
             Log.d(TAG, "startNewGame: createGameIx=$createGameIx")
             if (createGameIx == null) {
                 Log.e(TAG, "startNewGame: buildCreateGameInstruction returned null")
@@ -170,6 +181,7 @@ class GameViewModel @Inject constructor(
                             _state.update {
                                 it.copy(
                                     isLoading = false,
+                                    showNewGameConfigScreen = false,
                                     gamePin = pin,
                                     gameId = gameId,
                                     error = ""
@@ -407,6 +419,7 @@ class GameViewModel @Inject constructor(
                     error = disconnectError ?: "",
                     gamePin = null,
                     gameId = null,
+                    showNewGameConfigScreen = false,
                     showJoinGameScreen = false,
                     joinedGameId = null,
                     gamePhase = null,
