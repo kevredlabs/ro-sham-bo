@@ -138,6 +138,22 @@ fun CurrentGameScreen(
                         }
                     }
                 }
+                "DRAW_NEXT_ROUND" -> {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "DRAW – BE READY FOR NEXT ROUND",
+                            style = MaterialTheme.typography.h6,
+                            color = PixelYellow,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.padding(horizontal = 16.dp)
+                        )
+                    }
+                }
                 "RESULT" -> {
                     Box(
                         modifier = Modifier

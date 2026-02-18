@@ -7,7 +7,8 @@ use crate::state::GameEscrow;
 
 #[derive(Accounts)]
 pub struct Resolve<'info> {
-    /// Authority that can resolve (e.g. backend). In production, restrict to a known key.
+    /// Authority that can resolve (e.g. backend)
+    #[account(mut)]
     pub authority: Signer<'info>,
 
     #[account(

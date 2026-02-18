@@ -62,6 +62,9 @@ pub struct Game {
     /// Winner's pubkey when both have chosen; null if draw.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub winner_pubkey: Option<String>,
+    /// True when the last round was a draw and choices were cleared for the next round.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub round_cleared_for_draw: Option<bool>,
 }
 
 #[derive(Clone, Copy, Serialize, Deserialize, Default, PartialEq, Eq)]
@@ -154,6 +157,7 @@ async fn create_game(
         creator_choice: None,
         joiner_choice: None,
         winner_pubkey: None,
+        round_cleared_for_draw: None,
     };
 
     let users = state.db.collection::<User>("users");
@@ -239,7 +243,7 @@ async fn submit_choice(
         None => return Err(ApiError::bad_request("Game has no second player yet")),
     };
 
-    let (_, is_creator) = if pubkey == game.creator_pubkey {
+    let (choice_field, is_creator) = if pubkey == game.creator_pubkey {
         ("creator_choice", true)
     } else if pubkey == joiner_pubkey {
         ("joiner_choice", false)
@@ -247,10 +251,31 @@ async fn submit_choice(
         return Err(ApiError::bad_request("You are not a player in this game"));
     };
 
-    let update_doc = if is_creator {
-        doc! { "$set": { "creator_choice": choice.as_str() } }
+    // If previous round was a draw, clear both choices and the flag before applying the new choice.
+    let update_doc = if game.round_cleared_for_draw == Some(true) {
+        if is_creator {
+            doc! {
+                "$set": {
+                    "creator_choice": choice.as_str(),
+                    "joiner_choice": null,
+                    "round_cleared_for_draw": false
+                }
+            }
+        } else {
+            doc! {
+                "$set": {
+                    "joiner_choice": choice.as_str(),
+                    "creator_choice": null,
+                    "round_cleared_for_draw": false
+                }
+            }
+        }
     } else {
-        doc! { "$set": { "joiner_choice": choice.as_str() } }
+        if is_creator {
+            doc! { "$set": { "creator_choice": choice.as_str() } }
+        } else {
+            doc! { "$set": { "joiner_choice": choice.as_str() } }
+        }
     };
 
     games
@@ -283,28 +308,28 @@ async fn submit_choice(
             game.joiner_pubkey.as_deref().unwrap_or(""),
         )
         .map(|(_, _, wp)| wp);
-        let status = GameStatus::Finished;
-        games
-            .update_one(
-                doc! { "_id": &path.game_id },
-                doc! {
-                    "$set": {
-                        "winner_pubkey": winner_pubkey.clone(),
-                        "status": "finished"
-                    }
-                },
-                None,
-            )
-            .await
-            .map_err(|e| {
-                log::error!("Failed to set winner: {}", e);
-                ApiError::internal(e.to_string())
-            })?;
-        game.winner_pubkey = winner_pubkey.clone();
-        game.status = status;
 
-        // Resolve on-chain: send escrow SOL to winner (if API has resolve authority configured).
         if let Some(ref winner) = winner_pubkey {
+            // Clear winner: set finished and resolve on-chain once.
+            games
+                .update_one(
+                    doc! { "_id": &path.game_id },
+                    doc! {
+                        "$set": {
+                            "winner_pubkey": winner.clone(),
+                            "status": "finished"
+                        }
+                    },
+                    None,
+                )
+                .await
+                .map_err(|e| {
+                    log::error!("Failed to set winner: {}", e);
+                    ApiError::internal(e.to_string())
+                })?;
+            game.winner_pubkey = Some(winner.clone());
+            game.status = GameStatus::Finished;
+
             if let Some(ref solana) = state.solana {
                 if solana.can_resolve() {
                     let game_id_bytes = uuid::Uuid::parse_str(&path.game_id)
@@ -327,12 +352,34 @@ async fn submit_choice(
                                     winner,
                                     e
                                 );
-                                // Game is still marked finished in DB; client may retry or handle
                             }
                         }
                     }
                 }
             }
+        } else {
+            // Draw: clear choices and set round_cleared_for_draw so both clients start next round.
+            games
+                .update_one(
+                    doc! { "_id": &path.game_id },
+                    doc! {
+                        "$set": {
+                            "creator_choice": null,
+                            "joiner_choice": null,
+                            "round_cleared_for_draw": true
+                        }
+                    },
+                    None,
+                )
+                .await
+                .map_err(|e| {
+                    log::error!("Failed to clear choices for draw: {}", e);
+                    ApiError::internal(e.to_string())
+                })?;
+            game.creator_choice = None;
+            game.joiner_choice = None;
+            game.winner_pubkey = None;
+            game.round_cleared_for_draw = Some(true);
         }
     }
 

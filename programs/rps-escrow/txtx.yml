@@ -14,4 +14,7 @@ environments:
       rpc_api_url: https://api.devnet.solana.com
       payer_keypair_json: ~/.config/solana/id.json
       authority_keypair_json: ~/.config/solana/id.json
+      # resolve_game: fill in UI or pass -i game_escrow_address=... -i winner=...
+      game_escrow_address: ""
+      winner: ""
 

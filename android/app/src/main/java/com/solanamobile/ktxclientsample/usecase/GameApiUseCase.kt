@@ -119,6 +119,7 @@ class GameApiUseCase @Inject constructor() {
                 val winnerPubkey = if (json.has("winner_pubkey") && !json.isNull("winner_pubkey")) {
                     json.optString("winner_pubkey", null)
                 } else null
+                val roundClearedForDraw = json.optBoolean("round_cleared_for_draw", false)
                 Result.success(
                     GameState(
                         gameId = json.optString("_id", gameId),
@@ -127,7 +128,8 @@ class GameApiUseCase @Inject constructor() {
                         creatorChoice = creatorChoice,
                         joinerChoice = joinerChoice,
                         winnerPubkey = winnerPubkey,
-                        creatorPubkey = json.optString("creator_pubkey", null).takeIf { it.isNotEmpty() }
+                        creatorPubkey = json.optString("creator_pubkey", null).takeIf { it.isNotEmpty() },
+                        roundClearedForDraw = roundClearedForDraw
                     )
                 )
             }
@@ -169,6 +171,7 @@ class GameApiUseCase @Inject constructor() {
                 val winnerPubkey = if (json.has("winner_pubkey") && !json.isNull("winner_pubkey")) {
                     json.optString("winner_pubkey", null)
                 } else null
+                val roundClearedForDraw = json.optBoolean("round_cleared_for_draw", false)
                 Result.success(
                     GameState(
                         gameId = json.optString("_id", gameId),
@@ -177,7 +180,8 @@ class GameApiUseCase @Inject constructor() {
                         creatorChoice = creatorChoice,
                         joinerChoice = joinerChoice,
                         winnerPubkey = winnerPubkey,
-                        creatorPubkey = json.optString("creator_pubkey", null).takeIf { it.isNotEmpty() }
+                        creatorPubkey = json.optString("creator_pubkey", null).takeIf { it.isNotEmpty() },
+                        roundClearedForDraw = roundClearedForDraw
                     )
                 )
             }
@@ -201,5 +205,6 @@ data class GameState(
     val creatorChoice: String? = null,
     val joinerChoice: String? = null,
     val winnerPubkey: String? = null,
-    val creatorPubkey: String? = null
+    val creatorPubkey: String? = null,
+    val roundClearedForDraw: Boolean = false
 )

@@ -46,7 +46,7 @@ data class GameViewState(
     val showJoinGameScreen: Boolean = false,
     /** When non-null, show CurrentGameScreen (user joined this game). */
     val joinedGameId: String? = null,
-    /** Current game screen phase: COUNTDOWN, SELECTION, WAITING_FOR_OTHER, RESULT_COUNTDOWN, RESULT. */
+    /** Current game screen phase: COUNTDOWN, SELECTION, WAITING_FOR_OTHER, DRAW_NEXT_ROUND, RESULT_COUNTDOWN, RESULT. */
     val gamePhase: String? = null,
     /** Countdown value to display (3, 2, 1). */
     val countdownNumber: Int = 3,
@@ -427,7 +427,7 @@ class GameViewModel @Inject constructor(
         }
     }
 
-    /** Submits RPS choice and starts polling until both players have chosen. */
+    /** Submits RPS choice and starts polling until both players have chosen (or draw → next round). */
     fun submitChoice(choice: String) {
         val gameId = _state.value.joinedGameId ?: return
         val pubkey = _state.value.userAddress
@@ -438,7 +438,11 @@ class GameViewModel @Inject constructor(
             _state.update { it.copy(gamePhase = "WAITING_FOR_OTHER", error = "") }
             gameApiUseCase.submitChoice(gameId, pubkey, normalized)
                 .onSuccess { gameState ->
-                    startPollingUntilBothChosen(gameId)
+                    if (gameState.roundClearedForDraw) {
+                        startDrawThenSelection(gameId)
+                    } else {
+                        startPollingUntilBothChosen(gameId)
+                    }
                 }
                 .onFailure { e ->
                     _state.update {
@@ -451,6 +455,15 @@ class GameViewModel @Inject constructor(
         }
     }
 
+    private fun startDrawThenSelection(gameId: String) {
+        viewModelScope.launch {
+            _state.update { it.copy(gamePhase = "DRAW_NEXT_ROUND") }
+            delay(2000L)
+            if (_state.value.joinedGameId != gameId) return@launch
+            _state.update { it.copy(gamePhase = "SELECTION") }
+        }
+    }
+
     private fun startPollingUntilBothChosen(gameId: String) {
         viewModelScope.launch {
             while (_state.value.joinedGameId == gameId && _state.value.gamePhase == "WAITING_FOR_OTHER") {
@@ -458,17 +471,26 @@ class GameViewModel @Inject constructor(
                 if (_state.value.joinedGameId != gameId || _state.value.gamePhase != "WAITING_FOR_OTHER") break
                 gameApiUseCase.getGame(gameId)
                     .onSuccess { gameState ->
+                        if (gameState.roundClearedForDraw) {
+                            startDrawThenSelection(gameId)
+                            return@launch
+                        }
                         val bothChosen = gameState.creatorChoice != null && gameState.joinerChoice != null
                         if (bothChosen) {
-                            val message = buildResultMessage(gameState)
-                            _state.update {
-                                it.copy(
-                                    gamePhase = "RESULT_COUNTDOWN",
-                                    countdownNumber = 3,
-                                    gameResultMessage = message
-                                )
+                            if (gameState.winnerPubkey != null && gameState.status == "finished") {
+                                val message = buildResultMessage(gameState)
+                                _state.update {
+                                    it.copy(
+                                        gamePhase = "RESULT_COUNTDOWN",
+                                        countdownNumber = 3,
+                                        gameResultMessage = message
+                                    )
+                                }
+                                startResultCountdown(gameId)
+                                return@launch
                             }
-                            startResultCountdown(gameId)
+                            // Draw: both chose but no winner (round will be cleared by API)
+                            startDrawThenSelection(gameId)
                             return@launch
                         }
                     }
