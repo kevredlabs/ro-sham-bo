@@ -77,6 +77,63 @@ class EscrowUseCase @Inject constructor() {
         return instruction
     }
 
+    /**
+     * Builds the join_game instruction for the rps_escrow program.
+     * Joiner deposits game_escrow.amount_per_player (read on-chain) into the escrow PDA.
+     * Instruction data is only the 8-byte discriminator; no amount or game_id in data.
+     *
+     * @param joiner Joiner's public key (signer and payer of the deposit).
+     * @param creator Creator's public key (for PDA derivation).
+     * @param gameIdBytes 16 bytes (UUID without hyphens, same as API game_id).
+     * @return TransactionInstruction for join_game, or null if PDA derivation fails.
+     */
+    suspend fun buildJoinGameInstruction(
+        joiner: SolanaPublicKey,
+        creator: SolanaPublicKey,
+        gameIdBytes: ByteArray
+    ): TransactionInstruction? {
+        Log.d(TAG, "buildJoinGameInstruction: joiner=${joiner.base58()} creator=${creator.base58()} gameIdBytes.size=${gameIdBytes.size}")
+        try {
+            require(gameIdBytes.size == 16) { "game_id must be 16 bytes" }
+        } catch (e: IllegalArgumentException) {
+            Log.e(TAG, "buildJoinGameInstruction: validation failed", e)
+            throw e
+        }
+
+        val seeds = listOf(
+            SolanaConfig.GAME_ESCROW_SEED,
+            creator.bytes,
+            gameIdBytes
+        )
+        Log.d(TAG, "buildJoinGameInstruction: deriving PDA programId=${SolanaConfig.RPS_ESCROW_PROGRAM_ID.base58()}")
+        val pdaResult = ProgramDerivedAddress.find(seeds, SolanaConfig.RPS_ESCROW_PROGRAM_ID)
+        val gameEscrowPda = pdaResult.getOrNull()
+        if (gameEscrowPda == null) {
+            Log.e(TAG, "buildJoinGameInstruction: PDA derivation failed (getOrNull() is null)")
+            return null
+        }
+        Log.d(TAG, "buildJoinGameInstruction: game_escrow PDA=${SolanaPublicKey(gameEscrowPda.bytes).base58()}")
+
+        // Accounts: joiner (signer, writable), game_escrow (writable), system_program (readonly)
+        val accounts = listOf(
+            AccountMeta(joiner, true, true),
+            AccountMeta(SolanaPublicKey(gameEscrowPda.bytes), false, true),
+            AccountMeta(SolanaConfig.SYSTEM_PROGRAM_ID, false, false)
+        )
+
+        // Instruction data: 8-byte Anchor discriminator only (no args for join_game)
+        val data = SolanaConfig.JOIN_GAME_DISCRIMINATOR.copyOf()
+        Log.d(TAG, "buildJoinGameInstruction: instruction data size=${data.size} discriminator=${data.joinToString("") { "%02x".format(it.toInt() and 0xFF) }}")
+
+        val instruction = TransactionInstruction(
+            SolanaConfig.RPS_ESCROW_PROGRAM_ID,
+            accounts,
+            data
+        )
+        Log.d(TAG, "buildJoinGameInstruction: success")
+        return instruction
+    }
+
     private companion object {
         const val TAG = "SeekerRPS"
     }

@@ -26,4 +26,10 @@ object SolanaConfig {
         124.toByte(), 69.toByte(), 75.toByte(), 66.toByte(),
         184.toByte(), 220.toByte(), 72.toByte(), 206.toByte()
     )
+
+    /** join_game instruction discriminator (from IDL). */
+    val JOIN_GAME_DISCRIMINATOR: ByteArray = byteArrayOf(
+        107.toByte(), 112.toByte(), 18.toByte(), 38.toByte(),
+        56.toByte(), 173.toByte(), 60.toByte(), 128.toByte()
+    )
 }

@@ -48,7 +48,7 @@ fun AppContent(
             showJoinGame -> JoinGameScreen(
                 isLoading = viewState.isLoading,
                 error = viewState.error,
-                onEnter = { viewModel.joinGame(it) },
+                onEnter = { viewModel.joinGame(intentSender, it) },
                 onBack = { viewModel.backFromJoinGame() }
             )
             else -> MainMenuScreen(

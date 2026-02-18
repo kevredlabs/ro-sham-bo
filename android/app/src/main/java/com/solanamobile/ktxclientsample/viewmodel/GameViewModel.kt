@@ -262,36 +262,136 @@ class GameViewModel @Inject constructor(
         _state.update { it.copy(showJoinGameScreen = false, error = "") }
     }
 
-    /** Tries to join a game with the given 4-digit PIN. On success, navigates to CurrentGameScreen. */
-    fun joinGame(pin: String) {
+    /**
+     * Joins a game with the given 4-digit PIN: API join, then on-chain join_game tx.
+     * Only navigates to CurrentGameScreen when the transaction succeeds.
+     */
+    fun joinGame(sender: ActivityResultSender, pin: String) {
         val address = _state.value.userAddress
-        if (address.isEmpty()) return
+        if (address.isEmpty()) {
+            Log.w(TAG, "joinGame: no wallet connected")
+            _state.update { it.copy(error = "Connect wallet first") }
+            return
+        }
         val trimmedPin = pin.take(4).filter { it.isDigit() }
         if (trimmedPin.length != 4) {
             _state.update { it.copy(error = "PIN must be 4 digits") }
             return
         }
         viewModelScope.launch {
+            Log.d(TAG, "joinGame: joining via API pin=**** joiner=$address")
             _state.update { it.copy(isLoading = true, error = "") }
-            gameApiUseCase.joinGame(trimmedPin, address)
-                .onSuccess { result ->
-                    _state.update {
-                        it.copy(
-                            isLoading = false,
-                            showJoinGameScreen = false,
-                            joinedGameId = result.gameId,
-                            error = ""
-                        )
+            val apiResult = gameApiUseCase.joinGame(trimmedPin, address)
+            apiResult.onFailure { e ->
+                Log.e(TAG, "joinGame: API join failed", e)
+                _state.update {
+                    it.copy(
+                        isLoading = false,
+                        error = e.message ?: "Failed to join game"
+                    )
+                }
+                return@launch
+            }
+            val result = apiResult.getOrNull() ?: return@launch
+            val gameId = result.gameId
+            Log.d(TAG, "joinGame: API ok gameId=$gameId")
+            Log.d(TAG, "joinGame: fetching game for creator_pubkey")
+            val getGameResult = gameApiUseCase.getGame(gameId)
+            getGameResult.onFailure { e ->
+                Log.e(TAG, "joinGame: getGame failed", e)
+                _state.update {
+                    it.copy(isLoading = false, error = e.message ?: "Failed to load game")
+                }
+                return@launch
+            }
+            val gameState = getGameResult.getOrNull() ?: return@launch
+            val creatorPubkey = gameState.creatorPubkey
+            if (creatorPubkey.isNullOrEmpty()) {
+                Log.e(TAG, "joinGame: missing creator_pubkey in game")
+                _state.update {
+                    it.copy(isLoading = false, error = "Invalid game data (missing creator)")
+                }
+                return@launch
+            }
+            Log.d(TAG, "joinGame: creator=$creatorPubkey")
+            val gameIdBytes = escrowUseCase.gameIdToBytes(gameId)
+            if (gameIdBytes == null) {
+                Log.e(TAG, "joinGame: invalid game_id from API")
+                _state.update {
+                    it.copy(isLoading = false, error = "Invalid game id from API")
+                }
+                return@launch
+            }
+            val joiner = SolanaPublicKey.from(address)
+            val creator = SolanaPublicKey.from(creatorPubkey)
+            val joinGameIx = escrowUseCase.buildJoinGameInstruction(joiner, creator, gameIdBytes)
+            Log.d(TAG, "joinGame: joinGameIx=$joinGameIx")
+            if (joinGameIx == null) {
+                Log.e(TAG, "joinGame: buildJoinGameInstruction returned null")
+                _state.update {
+                    it.copy(isLoading = false, error = "Failed to build join_game instruction")
+                }
+                return@launch
+            }
+            Log.d(TAG, "joinGame: instruction built, opening wallet session")
+            try {
+                val txResult = connect(sender) { authResult ->
+                    withContext(Dispatchers.IO) {
+                        Log.d(TAG, "joinGame: fetching latest blockhash before building tx")
+                        val blockHash = solanaRpcUseCase.getLatestBlockHash()
+                        Log.d(TAG, "joinGame: blockhash=$blockHash, building transaction")
+                        val message = Message.Builder()
+                            .addInstruction(joinGameIx)
+                            .setRecentBlockhash(blockHash)
+                            .build()
+                        val unsignedTx = Transaction(message)
+                        Log.d(TAG, "joinGame: sending transaction to wallet (signAndSendTransactions)")
+                        signAndSendTransactions(arrayOf(unsignedTx.serialize()))
                     }
                 }
-                .onFailure { e ->
-                    _state.update {
-                        it.copy(
-                            isLoading = false,
-                            error = e.message ?: "Failed to join game"
-                        )
+                Log.d(TAG, "joinGame: connect returned result=${txResult::class.simpleName}" + (if (txResult is TransactionResult.Failure) " message=${txResult.message}" else ""))
+                when (txResult) {
+                    is TransactionResult.Success -> {
+                        val txSignatureBytes = txResult.successPayload?.signatures?.first()
+                        txSignatureBytes?.let {
+                            Log.i(TAG, "joinGame: tx success signature=${Base58.encode(it)}")
+                            _state.update {
+                                it.copy(
+                                    isLoading = false,
+                                    showJoinGameScreen = false,
+                                    joinedGameId = gameId,
+                                    error = ""
+                                )
+                            }
+                        } ?: run {
+                            Log.w(TAG, "joinGame: Success but no signature in payload")
+                            _state.update {
+                                it.copy(isLoading = false, error = "Transaction sent but no signature")
+                            }
+                        }
+                    }
+                    is TransactionResult.NoWalletFound -> {
+                        Log.w(TAG, "joinGame: NoWalletFound ${txResult.message}")
+                        _state.update {
+                            it.copy(isLoading = false, walletFound = false, error = txResult.message)
+                        }
+                    }
+                    is TransactionResult.Failure -> {
+                        Log.e(TAG, "joinGame: Failure message=${txResult.message}")
+                        _state.update {
+                            it.copy(isLoading = false, error = txResult.message)
+                        }
                     }
                 }
+            } catch (e: Throwable) {
+                Log.e(TAG, "joinGame: exception during connect/signAndSend", e)
+                _state.update {
+                    it.copy(
+                        isLoading = false,
+                        error = e.message ?: "Transaction failed: ${e.javaClass.simpleName}"
+                    )
+                }
+            }
         }
     }
 
