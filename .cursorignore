@@ -1,4 +1,5 @@
 resolve_authority.json
+upgrade_authority.json
 
 # Env / IDE
 .env

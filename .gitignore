@@ -9,12 +9,28 @@
 # Rust
 target/
 
+# Android
+local.properties
+.gradle
+android/**/build/
+.externalNativeBuild
+.cxx
+*.apk
+*.apk_
+*.aab
+*.jks
+*.keystore
+
 # Build / logs
 *.log
 /build
 /captures
-.externalNativeBuild
-.cxx
-local.properties
-.gradle
-/captures
+
+# Test / coverage
+coverage/
+.coverage
+*.lcov
+
+# Editor backups
+*.swp
+*.swo

@@ -7,3 +7,4 @@ test-ledger
 .yarn
 .surfpool
 resolve_authority.json
+upgrade_authority.json
