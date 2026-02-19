@@ -45,4 +45,9 @@ pub mod rps_escrow {
     pub fn resolve(ctx: Context<Resolve>, winner: Pubkey) -> Result<()> {
         ctx.accounts.resolve(winner)
     }
+
+    /// Creator cancels the game: gets his money back in case no game was played and there is no joiner.
+    pub fn cancel(ctx: Context<Cancel>) -> Result<()> {
+        ctx.accounts.cancel()
+    }
 }

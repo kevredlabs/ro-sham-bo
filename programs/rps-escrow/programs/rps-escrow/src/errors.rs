@@ -10,6 +10,8 @@ pub enum EscrowError {
     AlreadyResolved,
     #[msg("Joiner already set")]
     JoinerAlreadySet,
+    #[msg("Winner already set")]
+    WinnerAlreadySet,
     #[msg("No joiner has deposited yet")]
     NoJoiner,
     #[msg("Insufficient balance in escrow")]
@@ -18,4 +20,6 @@ pub enum EscrowError {
     InvalidWinner,
     #[msg("Unauthorized: signer is not the resolve authority")]
     Unauthorized,
+    #[msg("Unauthorized: signer is not the creator of the game")]
+    UnauthorizedCreator,
 }
