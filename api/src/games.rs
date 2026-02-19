@@ -107,6 +107,21 @@ fn generate_pin() -> String {
 
 const VALID_CHOICES: [&str; 3] = ["rock", "paper", "scissors"];
 
+/// Shortens a pubkey for log display (first 6 chars + "..." + last 6 chars).
+fn short_pk(pk: &str) -> String {
+    let chars: Vec<char> = pk.chars().collect();
+    let n = chars.len();
+    if n <= 12 {
+        pk.to_string()
+    } else {
+        format!(
+            "{}...{}",
+            chars[..6].iter().collect::<String>(),
+            chars[n - 6..].iter().collect::<String>()
+        )
+    }
+}
+
 /// Returns (winner_choice, loser_choice, winner_pubkey) or None if draw.
 fn compute_winner(
     creator_choice: &str,
@@ -301,6 +316,8 @@ async fn submit_choice(
     };
 
     if let (Some(cc), Some(jc)) = (&game.creator_choice, &game.joiner_choice) {
+        let creator_short = short_pk(&game.creator_pubkey);
+        let joiner_short = short_pk(game.joiner_pubkey.as_deref().unwrap_or(""));
         let winner_pubkey = compute_winner(
             cc,
             jc,
@@ -329,6 +346,17 @@ async fn submit_choice(
                 })?;
             game.winner_pubkey = Some(winner.clone());
             game.status = GameStatus::Finished;
+
+            let winner_short = short_pk(winner);
+            log::info!(
+                "Round complete game_id={} creator={} choice={} joiner={} choice={} winner={}",
+                path.game_id,
+                creator_short,
+                cc,
+                joiner_short,
+                jc,
+                winner_short
+            );
 
             if let Some(ref solana) = state.solana {
                 if solana.can_resolve() {
@@ -359,6 +387,14 @@ async fn submit_choice(
             }
         } else {
             // Draw: clear choices and set round_cleared_for_draw so both clients start next round.
+            log::info!(
+                "Round complete game_id={} creator={} choice={} joiner={} choice={} draw",
+                path.game_id,
+                creator_short,
+                cc,
+                joiner_short,
+                jc
+            );
             games
                 .update_one(
                     doc! { "_id": &path.game_id },
@@ -383,7 +419,6 @@ async fn submit_choice(
         }
     }
 
-    log::info!("Choice submitted game_id={} pubkey={} choice={}", path.game_id, pubkey, choice);
     Ok(Json(game))
 }
 
