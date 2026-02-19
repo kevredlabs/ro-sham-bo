@@ -439,7 +439,7 @@ class GameViewModel @Inject constructor(
             gameApiUseCase.submitChoice(gameId, pubkey, normalized)
                 .onSuccess { gameState ->
                     if (gameState.roundClearedForDraw) {
-                        startDrawThenSelection(gameId)
+                        startDrawWithCountdown(gameId, "Draw")
                     } else {
                         startPollingUntilBothChosen(gameId)
                     }
@@ -455,9 +455,25 @@ class GameViewModel @Inject constructor(
         }
     }
 
-    private fun startDrawThenSelection(gameId: String) {
+    /** Shows 3-2-1 countdown then Draw result, then after 2s goes back to SELECTION. */
+    private fun startDrawWithCountdown(gameId: String, drawMessage: String) {
         viewModelScope.launch {
-            _state.update { it.copy(gamePhase = "DRAW_NEXT_ROUND") }
+            _state.update {
+                it.copy(
+                    gamePhase = "RESULT_COUNTDOWN",
+                    countdownNumber = 3,
+                    gameResultMessage = drawMessage
+                )
+            }
+            for (n in listOf(3, 2, 1)) {
+                if (_state.value.joinedGameId != gameId) return@launch
+                _state.update { it.copy(countdownNumber = n) }
+                delay(1000L)
+            }
+            if (_state.value.joinedGameId != gameId) return@launch
+            _state.update {
+                it.copy(gamePhase = "RESULT", countdownNumber = 0)
+            }
             delay(2000L)
             if (_state.value.joinedGameId != gameId) return@launch
             _state.update { it.copy(gamePhase = "SELECTION") }
@@ -472,7 +488,7 @@ class GameViewModel @Inject constructor(
                 gameApiUseCase.getGame(gameId)
                     .onSuccess { gameState ->
                         if (gameState.roundClearedForDraw) {
-                            startDrawThenSelection(gameId)
+                            startDrawWithCountdown(gameId, "Draw")
                             return@launch
                         }
                         val bothChosen = gameState.creatorChoice != null && gameState.joinerChoice != null
@@ -490,7 +506,8 @@ class GameViewModel @Inject constructor(
                                 return@launch
                             }
                             // Draw: both chose but no winner (round will be cleared by API)
-                            startDrawThenSelection(gameId)
+                            val drawMessage = buildResultMessage(gameState)
+                            startDrawWithCountdown(gameId, drawMessage)
                             return@launch
                         }
                     }
