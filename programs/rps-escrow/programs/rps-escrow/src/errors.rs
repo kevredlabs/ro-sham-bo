@@ -4,7 +4,7 @@ use anchor_lang::prelude::*;
 
 #[error_code]
 pub enum EscrowError {
-    #[msg("Amount must be greater than zero")]
+    #[msg("Amount is invalid")]
     InvalidAmount,
     #[msg("Game already resolved")]
     AlreadyResolved,
@@ -14,12 +14,14 @@ pub enum EscrowError {
     WinnerAlreadySet,
     #[msg("No joiner has deposited yet")]
     NoJoiner,
-    #[msg("Insufficient balance in escrow")]
+    #[msg("Insufficient balance")]
     InsufficientBalance,
     #[msg("Winner must be creator or joiner")]
     InvalidWinner,
     #[msg("Unauthorized: signer is not the resolve authority")]
     Unauthorized,
-    #[msg("Unauthorized: signer is not the creator of the game")]
+    #[msg("Unauthorized: the account is not the creator of the game")]
     UnauthorizedCreator,
+    #[msg("Unauthorized: the account is not the joiner of the game")]
+    UnauthorizedJoiner,
 }

@@ -23,18 +23,28 @@ pub struct CreateGame<'info> {
     )]
     pub game_escrow: Account<'info, GameEscrow>,
 
+    #[account(
+        mut,
+        seeds = [b"vault",game_escrow.key().as_ref()],
+        bump
+    )]
+    pub vault: SystemAccount<'info>,
+
     pub system_program: Program<'info, System>,
 }
 
 impl<'info> CreateGame<'info> {
-    /// Initializes the game escrow and transfers `amount` lamports from creator to the PDA.
+    /// Initializes the game escrow and transfers `amount` lamports from creator to the vault.
     pub fn create_and_deposit(
         &mut self,
         game_id: [u8; 16],
         amount: u64,
         bumps: &CreateGameBumps,
     ) -> Result<()> {
-        require!(amount > 0, EscrowError::InvalidAmount);
+        // check if the amount is greater than the rent exempt amount for the vault creation
+        let rent_exempt: u64 = Rent::get()?.minimum_balance(self.vault.to_account_info().data_len());
+
+        require!(amount > rent_exempt, EscrowError::InvalidAmount);
 
         self.game_escrow.set_inner(GameEscrow {
             creator: self.creator.key(),
@@ -42,15 +52,17 @@ impl<'info> CreateGame<'info> {
             joiner: None,
             amount_per_player: amount,
             bump: bumps.game_escrow,
+            vault_bump: bumps.vault,
             resolved: false,
             winner: None,
         });
 
+        // transfer the amount from the creator to the vault. It will also create the vault account owned by system program. 
         let cpi_ctx = CpiContext::new(
             self.system_program.to_account_info(),
             Transfer {
                 from: self.creator.to_account_info(),
-                to: self.game_escrow.to_account_info(),
+                to: self.vault.to_account_info(),
             },
         );
         transfer(cpi_ctx, amount)?;

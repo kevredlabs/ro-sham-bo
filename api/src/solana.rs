@@ -33,6 +33,17 @@ pub fn game_escrow_pda(program_id: &Pubkey, creator: &Pubkey, game_id: &[u8; 16]
     Pubkey::find_program_address(seeds, program_id).0
 }
 
+/// PDA for vault: seeds = `["vault", game_escrow.key()]`.
+pub fn vault_pda(program_id: &Pubkey, game_escrow: &Pubkey) -> Pubkey {
+    let seeds: &[&[u8]] = &[b"vault", game_escrow.as_ref()];
+    Pubkey::find_program_address(seeds, program_id).0
+}
+
+/// System program id (for resolve instruction).
+pub fn system_program_id() -> Pubkey {
+    Pubkey::from_str("11111111111111111111111111111111").unwrap()
+}
+
 /// Load keypair from a JSON file (array of 64 bytes).
 pub fn load_keypair(path: &std::path::Path) -> Result<Keypair, String> {
     let bytes: Vec<u8> = serde_json::from_reader(std::fs::File::open(path).map_err(|e| e.to_string())?)
@@ -68,13 +79,17 @@ pub fn resolve_game(
     let program = client.program(rps_escrow::ID).map_err(|e| e.to_string())?;
 
     let game_escrow = game_escrow_pda(&rps_escrow::ID, &creator, &game_id);
+    let vault = vault_pda(&rps_escrow::ID, &game_escrow);
 
     let resolve_ix = program
         .request()
         .accounts(accounts::Resolve {
             authority: authority_keypair.pubkey(),
             game_escrow,
+            vault,
             winner_destination: winner,
+            creator,
+            system_program: system_program_id(),
         })
         .args(args::Resolve { winner })
         .instructions()

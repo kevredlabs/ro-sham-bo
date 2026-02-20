@@ -11,6 +11,7 @@ pub struct GameEscrow {
     pub joiner: Option<Pubkey>,
     pub amount_per_player: u64,
     pub bump: u8,
+    pub vault_bump:u8,
     pub resolved: bool,
     pub winner: Option<Pubkey>,
 }

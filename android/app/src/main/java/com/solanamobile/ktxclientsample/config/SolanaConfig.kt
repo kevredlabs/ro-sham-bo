@@ -21,6 +21,9 @@ object SolanaConfig {
 
     val GAME_ESCROW_SEED: ByteArray = "game_escrow".encodeToByteArray()
 
+    /** Vault PDA seed (vault holds SOL for the game; seeds = [b"vault", game_escrow.key()]). */
+    val VAULT_SEED: ByteArray = "vault".encodeToByteArray()
+
     /** create_game instruction discriminator (from IDL). */
     val CREATE_GAME_DISCRIMINATOR: ByteArray = byteArrayOf(
         124.toByte(), 69.toByte(), 75.toByte(), 66.toByte(),

@@ -8,6 +8,93 @@
   },
   "instructions": [
     {
+      "name": "cancel",
+      "docs": [
+        "Creator cancels the game: gets his money back in case no game was played and there is no joiner."
+      ],
+      "discriminator": [
+        232,
+        219,
+        223,
+        41,
+        219,
+        236,
+        220,
+        190
+      ],
+      "accounts": [
+        {
+          "name": "creator",
+          "docs": [
+            "Creator of the game"
+          ],
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "game_escrow",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  97,
+                  109,
+                  101,
+                  95,
+                  101,
+                  115,
+                  99,
+                  114,
+                  111,
+                  119
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "game_escrow.creator",
+                "account": "GameEscrow"
+              },
+              {
+                "kind": "account",
+                "path": "game_escrow.game_id",
+                "account": "GameEscrow"
+              }
+            ]
+          }
+        },
+        {
+          "name": "vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "game_escrow"
+              }
+            ]
+          }
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": []
+    },
+    {
       "name": "create_game",
       "docs": [
         "Creator creates a game escrow and deposits `amount` lamports. `game_id` = 16 bytes (UUID without hyphens, hex)."
@@ -56,6 +143,28 @@
               {
                 "kind": "arg",
                 "path": "game_id"
+              }
+            ]
+          }
+        },
+        {
+          "name": "vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "game_escrow"
               }
             ]
           }
@@ -137,6 +246,28 @@
           }
         },
         {
+          "name": "vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "game_escrow"
+              }
+            ]
+          }
+        },
+        {
           "name": "system_program",
           "address": "11111111111111111111111111111111"
         }
@@ -144,26 +275,24 @@
       "args": []
     },
     {
-      "name": "resolve",
-      "docs": [
-        "Authority resolves the game: full payout to winner, then closes the escrow."
-      ],
+      "name": "refund",
       "discriminator": [
-        246,
-        150,
-        236,
-        206,
-        108,
+        2,
+        96,
+        183,
+        251,
         63,
-        58,
-        10
+        208,
+        46,
+        46
       ],
       "accounts": [
         {
           "name": "authority",
           "docs": [
-            "Authority that can resolve (e.g. backend). In production, restrict to a known key."
+            "Creator of the game"
           ],
+          "writable": true,
           "signer": true
         },
         {
@@ -201,12 +330,136 @@
           }
         },
         {
+          "name": "vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "game_escrow"
+              }
+            ]
+          }
+        },
+        {
+          "name": "creator",
+          "writable": true
+        },
+        {
+          "name": "joiner",
+          "writable": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "resolve",
+      "docs": [
+        "Authority resolves the game: full payout to winner, then closes the escrow."
+      ],
+      "discriminator": [
+        246,
+        150,
+        236,
+        206,
+        108,
+        63,
+        58,
+        10
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "docs": [
+            "Authority that can resolve (e.g. backend)"
+          ],
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "game_escrow",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  103,
+                  97,
+                  109,
+                  101,
+                  95,
+                  101,
+                  115,
+                  99,
+                  114,
+                  111,
+                  119
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "game_escrow.creator",
+                "account": "GameEscrow"
+              },
+              {
+                "kind": "account",
+                "path": "game_escrow.game_id",
+                "account": "GameEscrow"
+              }
+            ]
+          }
+        },
+        {
+          "name": "vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "game_escrow"
+              }
+            ]
+          }
+        },
+        {
           "name": "winner_destination",
           "docs": [
-            "Receives the full escrow balance (all lamports) when the account is closed.",
             "Must be the winner's system account (winner must be creator or joiner)."
           ],
           "writable": true
+        },
+        {
+          "name": "creator",
+          "writable": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
         }
       ],
       "args": [
@@ -236,7 +489,7 @@
     {
       "code": 6000,
       "name": "InvalidAmount",
-      "msg": "Amount must be greater than zero"
+      "msg": "Amount is invalid"
     },
     {
       "code": 6001,
@@ -250,23 +503,38 @@
     },
     {
       "code": 6003,
+      "name": "WinnerAlreadySet",
+      "msg": "Winner already set"
+    },
+    {
+      "code": 6004,
       "name": "NoJoiner",
       "msg": "No joiner has deposited yet"
     },
     {
-      "code": 6004,
+      "code": 6005,
       "name": "InsufficientBalance",
-      "msg": "Insufficient balance in escrow"
+      "msg": "Insufficient balance"
     },
     {
-      "code": 6005,
+      "code": 6006,
       "name": "InvalidWinner",
       "msg": "Winner must be creator or joiner"
     },
     {
-      "code": 6006,
+      "code": 6007,
       "name": "Unauthorized",
       "msg": "Unauthorized: signer is not the resolve authority"
+    },
+    {
+      "code": 6008,
+      "name": "UnauthorizedCreator",
+      "msg": "Unauthorized: the account is not the creator of the game"
+    },
+    {
+      "code": 6009,
+      "name": "UnauthorizedJoiner",
+      "msg": "Unauthorized: the account is not the joiner of the game"
     }
   ],
   "types": [
@@ -303,6 +571,10 @@
           },
           {
             "name": "bump",
+            "type": "u8"
+          },
+          {
+            "name": "vault_bump",
             "type": "u8"
           },
           {

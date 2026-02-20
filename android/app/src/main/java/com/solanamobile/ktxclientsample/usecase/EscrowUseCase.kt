@@ -52,10 +52,24 @@ class EscrowUseCase @Inject constructor() {
         }
         Log.d(TAG, "buildCreateGameInstruction: game_escrow PDA=${SolanaPublicKey(gameEscrowPda.bytes).base58()}")
 
-        // Accounts: creator (signer, writable), game_escrow (writable), system_program (readonly)
+        // Vault PDA: seeds = [b"vault", game_escrow.key()], same program
+        val vaultSeeds = listOf(
+            SolanaConfig.VAULT_SEED,
+            gameEscrowPda.bytes
+        )
+        val vaultPdaResult = ProgramDerivedAddress.find(vaultSeeds, SolanaConfig.RPS_ESCROW_PROGRAM_ID)
+        val vaultPda = vaultPdaResult.getOrNull()
+        if (vaultPda == null) {
+            Log.e(TAG, "buildCreateGameInstruction: vault PDA derivation failed")
+            return null
+        }
+        Log.d(TAG, "buildCreateGameInstruction: vault PDA=${SolanaPublicKey(vaultPda.bytes).base58()}")
+
+        // Accounts: creator (signer, writable), game_escrow (writable), vault (writable), system_program (readonly)
         val accounts = listOf(
             AccountMeta(creator, true, true),
             AccountMeta(SolanaPublicKey(gameEscrowPda.bytes), false, true),
+            AccountMeta(SolanaPublicKey(vaultPda.bytes), false, true),
             AccountMeta(SolanaConfig.SYSTEM_PROGRAM_ID, false, false)
         )
 
@@ -114,10 +128,24 @@ class EscrowUseCase @Inject constructor() {
         }
         Log.d(TAG, "buildJoinGameInstruction: game_escrow PDA=${SolanaPublicKey(gameEscrowPda.bytes).base58()}")
 
-        // Accounts: joiner (signer, writable), game_escrow (writable), system_program (readonly)
+        // Vault PDA: seeds = [b"vault", game_escrow.key()], same program
+        val vaultSeeds = listOf(
+            SolanaConfig.VAULT_SEED,
+            gameEscrowPda.bytes
+        )
+        val vaultPdaResult = ProgramDerivedAddress.find(vaultSeeds, SolanaConfig.RPS_ESCROW_PROGRAM_ID)
+        val vaultPda = vaultPdaResult.getOrNull()
+        if (vaultPda == null) {
+            Log.e(TAG, "buildJoinGameInstruction: vault PDA derivation failed")
+            return null
+        }
+        Log.d(TAG, "buildJoinGameInstruction: vault PDA=${SolanaPublicKey(vaultPda.bytes).base58()}")
+
+        // Accounts: joiner (signer, writable), game_escrow (writable), vault (writable), system_program (readonly)
         val accounts = listOf(
             AccountMeta(joiner, true, true),
             AccountMeta(SolanaPublicKey(gameEscrowPda.bytes), false, true),
+            AccountMeta(SolanaPublicKey(vaultPda.bytes), false, true),
             AccountMeta(SolanaConfig.SYSTEM_PROGRAM_ID, false, false)
         )
 

@@ -50,4 +50,8 @@ pub mod rps_escrow {
     pub fn cancel(ctx: Context<Cancel>) -> Result<()> {
         ctx.accounts.cancel()
     }
+
+    pub fn refund(ctx: Context<Refund>) -> Result<()> {
+        ctx.accounts.refund()
+    }
 }

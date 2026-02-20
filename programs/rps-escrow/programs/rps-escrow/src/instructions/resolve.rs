@@ -1,6 +1,7 @@
 //! Resolve game: authority closes the escrow; all SOL (full balance) is sent to the winner.
 
 use anchor_lang::prelude::*;
+use anchor_lang::system_program::{transfer, Transfer};
 
 use crate::errors::EscrowError;
 use crate::state::GameEscrow;
@@ -17,15 +18,28 @@ pub struct Resolve<'info> {
         bump = game_escrow.bump,
         constraint = !game_escrow.resolved @ EscrowError::AlreadyResolved,
         constraint = game_escrow.joiner.is_some() @ EscrowError::NoJoiner,
-        close = winner_destination,
+        constraint = game_escrow.creator == creator.key() @ EscrowError::UnauthorizedCreator,
+        close = creator
     )]
     pub game_escrow: Account<'info, GameEscrow>,
 
-    /// Receives the full escrow balance (all lamports) when the account is closed.
+    #[account(
+        mut,
+        seeds = [b"vault",game_escrow.key().as_ref()],
+        bump = game_escrow.vault_bump,
+    )]
+    pub vault: SystemAccount<'info>,
+
     /// Must be the winner's system account (winner must be creator or joiner).
     /// CHECK: Validated in instruction: must match winner pubkey and winner must be creator or joiner.
     #[account(mut)]
     pub winner_destination: UncheckedAccount<'info>,
+
+    /// CHECK: Validated in instruction: must match creator pubkey.
+    #[account(mut)]
+    pub creator: AccountInfo<'info>,
+
+    pub system_program: Program<'info, System>
 }
 
 impl<'info> Resolve<'info> {
@@ -44,10 +58,28 @@ impl<'info> Resolve<'info> {
             EscrowError::InvalidWinner
         );
 
-        let balance = self.game_escrow.to_account_info().lamports();
-        let min_balance = Rent::get()?.minimum_balance(self.game_escrow.to_account_info().data_len());
-        require!(balance > min_balance, EscrowError::InsufficientBalance);
+        let payout = self.game_escrow.amount_per_player.checked_mul(2).ok_or(EscrowError::InvalidAmount)?;
 
-        Ok(())
+        require!(self.vault.lamports() >= payout, EscrowError::InsufficientBalance);
+
+        let seeds: &[&[&[u8]]] = &[&[
+        b"vault", 
+        &self.game_escrow.key().to_bytes(),
+        &[self.game_escrow.vault_bump]]];
+
+
+
+        let cpi_ctx = CpiContext::new_with_signer(
+            self.system_program.to_account_info(),
+            Transfer {
+                from: self.vault.to_account_info(),
+                to: self.winner_destination.to_account_info(),
+            },
+            seeds);
+
+        transfer(cpi_ctx, payout)?; // send the full amount to the winner
+
+
+        Ok(()) // close the escrow account and give back rent to the creator
     }
 }

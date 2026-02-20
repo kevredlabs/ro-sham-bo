@@ -5,6 +5,8 @@ use anchor_lang::prelude::*;
 use crate::errors::EscrowError;
 use crate::state::GameEscrow;
 
+use anchor_lang::system_program::{transfer, Transfer};
+
 #[derive(Accounts)]
 pub struct Cancel<'info> {
 
@@ -22,15 +24,49 @@ pub struct Cancel<'info> {
         close = creator,
     )]
     pub game_escrow: Account<'info, GameEscrow>,
+
+
+    #[account(
+        mut,
+        seeds = [b"vault",game_escrow.key().as_ref()],
+        bump = game_escrow.vault_bump,
+    )]
+    pub vault: SystemAccount<'info>,
+
+    pub system_program: Program<'info, System>,
 }
 
 impl<'info> Cancel<'info> {
     /// Cancel the game: validates creator, then close sends all SOL to creator.
+    /// 
     pub fn cancel(&mut self) -> Result<()> {
         require!(
             self.creator.key() == self.game_escrow.creator,
             EscrowError::UnauthorizedCreator
         );
-        Ok(())
+
+        let payout = self.game_escrow.amount_per_player;
+
+        require!(self.vault.lamports() == payout, EscrowError::InsufficientBalance);
+
+
+        let seeds: &[&[&[u8]]] = &[&[
+            b"vault", 
+            &self.game_escrow.key().to_bytes(),
+            &[self.game_escrow.vault_bump]]];
+    
+    
+    
+        let cpi_ctx = CpiContext::new_with_signer(
+            self.system_program.to_account_info(),
+            Transfer {
+                from: self.vault.to_account_info(),
+                to: self.creator.to_account_info(),
+            },
+            seeds);
+    
+        transfer(cpi_ctx, payout)?; // send the full amount to the creator
+        
+        Ok(()) // close the escrow account and give back rent to the creator
     }
 }

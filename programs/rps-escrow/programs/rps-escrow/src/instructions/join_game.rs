@@ -20,11 +20,19 @@ pub struct JoinGame<'info> {
     )]
     pub game_escrow: Account<'info, GameEscrow>,
 
+    #[account(
+        mut,
+        seeds = [b"vault",game_escrow.key().as_ref()],
+        bump = game_escrow.vault_bump,
+    )]
+    pub vault: SystemAccount<'info>,
+
+
     pub system_program: Program<'info, System>,
 }
 
 impl<'info> JoinGame<'info> {
-    /// Deposits `amount_per_player` lamports from joiner into the escrow and sets joiner on the game.
+    /// Deposits `amount_per_player` lamports from joiner into the vault and sets joiner on the game.
     pub fn deposit_and_join(&mut self) -> Result<()> {
         let amount = self.game_escrow.amount_per_player;
 
@@ -32,7 +40,7 @@ impl<'info> JoinGame<'info> {
             self.system_program.to_account_info(),
             Transfer {
                 from: self.joiner.to_account_info(),
-                to: self.game_escrow.to_account_info(),
+                to: self.vault.to_account_info(),
             },
         );
         transfer(cpi_ctx, amount)?;

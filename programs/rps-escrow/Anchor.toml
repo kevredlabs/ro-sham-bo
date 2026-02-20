@@ -17,7 +17,7 @@ url = "https://api.apr.dev"
 # Use "localnet" for local tests, "devnet" for devnet deployment
 [provider]
 cluster = "localnet"
-wallet = "resolve_authority.json"
+wallet = "~/.config/solana/id.json"
 
 [scripts]
 test = "yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/**/*.ts"
