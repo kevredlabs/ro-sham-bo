@@ -162,6 +162,69 @@ class EscrowUseCase @Inject constructor() {
         return instruction
     }
 
+    /**
+     * Builds the cancel instruction for the rps_escrow program.
+     * Creator cancels the game before anyone joins and gets the deposit back.
+     *
+     * @param creator Creator's public key (signer, must match on-chain game_escrow.creator).
+     * @param gameIdBytes 16 bytes (UUID without hyphens, same as API game_id).
+     * @return TransactionInstruction for cancel, or null if PDA derivation fails.
+     */
+    suspend fun buildCancelGameInstruction(
+        creator: SolanaPublicKey,
+        gameIdBytes: ByteArray
+    ): TransactionInstruction? {
+        Log.d(TAG, "buildCancelGameInstruction: creator=${creator.base58()} gameIdBytes.size=${gameIdBytes.size}")
+        try {
+            require(gameIdBytes.size == 16) { "game_id must be 16 bytes" }
+        } catch (e: IllegalArgumentException) {
+            Log.e(TAG, "buildCancelGameInstruction: validation failed", e)
+            throw e
+        }
+
+        val seeds = listOf(
+            SolanaConfig.GAME_ESCROW_SEED,
+            creator.bytes,
+            gameIdBytes
+        )
+        val pdaResult = ProgramDerivedAddress.find(seeds, SolanaConfig.RPS_ESCROW_PROGRAM_ID)
+        val gameEscrowPda = pdaResult.getOrNull()
+        if (gameEscrowPda == null) {
+            Log.e(TAG, "buildCancelGameInstruction: PDA derivation failed")
+            return null
+        }
+        Log.d(TAG, "buildCancelGameInstruction: game_escrow PDA=${SolanaPublicKey(gameEscrowPda.bytes).base58()}")
+
+        val vaultSeeds = listOf(
+            SolanaConfig.VAULT_SEED,
+            gameEscrowPda.bytes
+        )
+        val vaultPdaResult = ProgramDerivedAddress.find(vaultSeeds, SolanaConfig.RPS_ESCROW_PROGRAM_ID)
+        val vaultPda = vaultPdaResult.getOrNull()
+        if (vaultPda == null) {
+            Log.e(TAG, "buildCancelGameInstruction: vault PDA derivation failed")
+            return null
+        }
+        Log.d(TAG, "buildCancelGameInstruction: vault PDA=${SolanaPublicKey(vaultPda.bytes).base58()}")
+
+        val accounts = listOf(
+            AccountMeta(creator, true, true),
+            AccountMeta(SolanaPublicKey(gameEscrowPda.bytes), false, true),
+            AccountMeta(SolanaPublicKey(vaultPda.bytes), false, true),
+            AccountMeta(SolanaConfig.SYSTEM_PROGRAM_ID, false, false)
+        )
+
+        val data = SolanaConfig.CANCEL_DISCRIMINATOR.copyOf()
+
+        val instruction = TransactionInstruction(
+            SolanaConfig.RPS_ESCROW_PROGRAM_ID,
+            accounts,
+            data
+        )
+        Log.d(TAG, "buildCancelGameInstruction: success")
+        return instruction
+    }
+
     private companion object {
         const val TAG = "SeekerRPS"
     }

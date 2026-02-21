@@ -35,4 +35,10 @@ object SolanaConfig {
         107.toByte(), 112.toByte(), 18.toByte(), 38.toByte(),
         56.toByte(), 173.toByte(), 60.toByte(), 128.toByte()
     )
+
+    /** cancel instruction discriminator (sha256("global:cancel")[0..8]). */
+    val CANCEL_DISCRIMINATOR: ByteArray = byteArrayOf(
+        232.toByte(), 219.toByte(), 223.toByte(), 41.toByte(),
+        219.toByte(), 236.toByte(), 220.toByte(), 190.toByte()
+    )
 }

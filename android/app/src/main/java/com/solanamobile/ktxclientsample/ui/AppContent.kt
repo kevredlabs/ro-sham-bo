@@ -36,7 +36,9 @@ fun AppContent(
             )
             gamePin != null -> NewGameScreen(
                 pin = gamePin,
-                onBack = { viewModel.backFromNewGame() }
+                isLoading = viewState.isLoading,
+                error = viewState.error,
+                onCancel = { viewModel.cancelGame(intentSender) }
             )
             viewState.showNewGameConfigScreen -> NewGameConfigScreen(
                 solBalance = viewState.solBalance,

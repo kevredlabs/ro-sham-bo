@@ -24,7 +24,9 @@ import com.solanamobile.ktxclientsample.ui.theme.PixelYellow
 @Composable
 fun NewGameScreen(
     pin: String,
-    onBack: () -> Unit
+    isLoading: Boolean,
+    error: String,
+    onCancel: () -> Unit
 ) {
     PixelScreen {
         Column(
@@ -63,10 +65,22 @@ fun NewGameScreen(
             )
 
             Spacer(modifier = Modifier.height(48.dp))
+
+            if (error.isNotEmpty()) {
+                Text(
+                    text = error,
+                    style = MaterialTheme.typography.body2,
+                    color = PixelYellow,
+                    textAlign = TextAlign.Center
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+            }
+
             PixelOutlinedButton(
-                text = "Back to Menu",
-                onClick = onBack,
-                modifier = Modifier.fillMaxWidth()
+                text = if (isLoading) "Cancelling..." else "Cancel the Game",
+                onClick = onCancel,
+                modifier = Modifier.fillMaxWidth(),
+                enabled = !isLoading
             )
         }
     }

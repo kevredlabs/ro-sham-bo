@@ -229,6 +229,83 @@ class GameViewModel @Inject constructor(
         _state.update { it.copy(gamePin = null, gameId = null) }
     }
 
+    /**
+     * Cancels the current game on-chain: builds the cancel instruction, signs and sends the tx.
+     * On success, navigates back to main menu and refunds the creator.
+     */
+    fun cancelGame(sender: ActivityResultSender) {
+        val address = _state.value.userAddress
+        val gameId = _state.value.gameId
+        if (address.isEmpty() || gameId == null) {
+            Log.w(TAG, "cancelGame: no wallet or gameId")
+            _state.update { it.copy(error = "Cannot cancel: missing data") }
+            return
+        }
+        viewModelScope.launch {
+            Log.d(TAG, "cancelGame: cancelling gameId=$gameId creator=$address")
+            _state.update { it.copy(isLoading = true, error = "") }
+            val gameIdBytes = escrowUseCase.gameIdToBytes(gameId)
+            if (gameIdBytes == null) {
+                Log.e(TAG, "cancelGame: invalid game_id")
+                _state.update { it.copy(isLoading = false, error = "Invalid game id") }
+                return@launch
+            }
+            val creator = SolanaPublicKey.from(address)
+            val cancelIx = escrowUseCase.buildCancelGameInstruction(creator, gameIdBytes)
+            if (cancelIx == null) {
+                Log.e(TAG, "cancelGame: buildCancelGameInstruction returned null")
+                _state.update { it.copy(isLoading = false, error = "Failed to build cancel instruction") }
+                return@launch
+            }
+            try {
+                val txResult = connect(sender) { authResult ->
+                    withContext(Dispatchers.IO) {
+                        val blockHash = solanaRpcUseCase.getLatestBlockHash()
+                        val message = Message.Builder()
+                            .addInstruction(cancelIx)
+                            .setRecentBlockhash(blockHash)
+                            .build()
+                        val unsignedTx = Transaction(message)
+                        Log.d(TAG, "cancelGame: sending cancel tx to wallet")
+                        signAndSendTransactions(arrayOf(unsignedTx.serialize()))
+                    }
+                }
+                when (txResult) {
+                    is TransactionResult.Success -> {
+                        val sig = txResult.successPayload?.signatures?.first()
+                        sig?.let {
+                            Log.i(TAG, "cancelGame: tx success signature=${Base58.encode(it)}")
+                            _state.update {
+                                it.copy(
+                                    isLoading = false,
+                                    gamePin = null,
+                                    gameId = null,
+                                    error = ""
+                                )
+                            }
+                        } ?: run {
+                            Log.w(TAG, "cancelGame: Success but no signature")
+                            _state.update { it.copy(isLoading = false, error = "Cancel sent but no signature") }
+                        }
+                    }
+                    is TransactionResult.NoWalletFound -> {
+                        Log.w(TAG, "cancelGame: NoWalletFound ${txResult.message}")
+                        _state.update { it.copy(isLoading = false, walletFound = false, error = txResult.message) }
+                    }
+                    is TransactionResult.Failure -> {
+                        Log.e(TAG, "cancelGame: Failure message=${txResult.message}")
+                        _state.update { it.copy(isLoading = false, error = txResult.message) }
+                    }
+                }
+            } catch (e: Throwable) {
+                Log.e(TAG, "cancelGame: exception", e)
+                _state.update {
+                    it.copy(isLoading = false, error = e.message ?: "Cancel failed: ${e.javaClass.simpleName}")
+                }
+            }
+        }
+    }
+
     /** Polls game state every second; when a second player joins, navigates to CurrentGameScreen. */
     private fun startPollingGameState(gameId: String) {
         viewModelScope.launch {
