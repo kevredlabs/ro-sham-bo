@@ -20,10 +20,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.solanamobile.ktxclientsample.config.SolanaConfig
 import com.solanamobile.ktxclientsample.ui.theme.PixelCyan
-import com.solanamobile.ktxclientsample.ui.theme.PixelGreen
+import com.solanamobile.ktxclientsample.ui.theme.PixelDarkBlue
 import com.solanamobile.ktxclientsample.ui.theme.PixelLightGray
+import com.solanamobile.ktxclientsample.ui.theme.PixelTeal
 import com.solanamobile.ktxclientsample.ui.theme.PixelYellow
 
 @Composable
@@ -58,28 +60,41 @@ fun NewGameConfigScreen(
                 textColor = PixelLightGray
             )
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.weight(1f))
 
-            Text(
-                text = "CONFIGURE GAME",
-                style = MaterialTheme.typography.h6,
-                color = PixelCyan
+            PixelShadowText(
+                text = "CONFIGURE",
+                color = PixelCyan,
+                shadowColor = PixelTeal,
+                style = MaterialTheme.typography.h3.copy(
+                    fontSize = 24.sp,
+                    letterSpacing = 3.sp
+                )
+            )
+            Spacer(modifier = Modifier.height(6.dp))
+            PixelShadowText(
+                text = "GAME",
+                color = PixelCyan,
+                shadowColor = PixelTeal,
+                style = MaterialTheme.typography.h3.copy(
+                    fontSize = 24.sp,
+                    letterSpacing = 3.sp
+                )
             )
 
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Text(
-                text = "Balance: $solBalance SOL",
-                style = MaterialTheme.typography.body2,
-                color = PixelYellow
-            )
-
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.weight(1f))
 
             OutlinedTextField(
                 value = amountSolText,
                 onValueChange = { amountSolText = it },
-                label = { Text("Amount (SOL)", color = PixelLightGray) },
+                label = {
+                    Text(
+                        "Amount (SOL)",
+                        color = PixelLightGray,
+                        style = MaterialTheme.typography.body1
+                    )
+                },
+                textStyle = MaterialTheme.typography.h5.copy(color = PixelYellow),
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 modifier = Modifier.fillMaxWidth(),
@@ -94,15 +109,23 @@ fun NewGameConfigScreen(
                 )
             )
 
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Text(
+                text = "Balance: ${"%.4f".format(solBalance)} SOL",
+                style = MaterialTheme.typography.h5,
+                color = PixelYellow
+            )
+
             if (!amountValid && amountSolText.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(4.dp))
+                Spacer(modifier = Modifier.height(6.dp))
                 Text(
                     text = "Amount must be greater than 0",
                     style = MaterialTheme.typography.caption,
                     color = MaterialTheme.colors.error
                 )
             } else if (!withinBalance && amountValid) {
-                Spacer(modifier = Modifier.height(4.dp))
+                Spacer(modifier = Modifier.height(6.dp))
                 Text(
                     text = "Amount exceeds balance",
                     style = MaterialTheme.typography.caption,
@@ -114,20 +137,26 @@ fun NewGameConfigScreen(
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
                     text = error,
-                    style = MaterialTheme.typography.body2,
+                    style = MaterialTheme.typography.body1,
                     color = MaterialTheme.colors.error
                 )
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.weight(1f))
 
             PixelButton(
                 text = if (isLoading) "Creating..." else "Create game",
                 onClick = { onCreateGame(amountLamports) },
                 enabled = canCreate,
                 modifier = Modifier.fillMaxWidth(),
-                bgColor = PixelGreen
+                bgColor = PixelCyan,
+                buttonHeight = 64.dp,
+                textStyle = MaterialTheme.typography.h5,
+                borderWidth = 3.dp,
+                shadowOffset = 5.dp
             )
+
+            Spacer(modifier = Modifier.height(16.dp))
         }
     }
 }
