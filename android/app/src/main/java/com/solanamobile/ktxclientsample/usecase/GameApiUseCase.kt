@@ -27,11 +27,13 @@ class GameApiUseCase @Inject constructor() {
     /**
      * Creates a new game on the API. Returns game id and 4-digit PIN to share.
      * @param creatorWallet Solana public key (base58) of the game creator
+     * @param gameId Pre-generated UUID to use as the game ID (for on-chain-first flow)
      * @return Result with CreateGameResult or error message
      */
-    suspend fun createGame(creatorWallet: String): Result<CreateGameResult> = withContext(Dispatchers.IO) {
+    suspend fun createGame(creatorWallet: String, gameId: String? = null): Result<CreateGameResult> = withContext(Dispatchers.IO) {
         val body = JSONObject().apply {
             put("creator_pubkey", creatorWallet)
+            if (gameId != null) put("game_id", gameId)
         }.toString()
         val request = Request.Builder()
             .url("$baseUrl/games/create")

@@ -107,8 +107,8 @@ class GameViewModel @Inject constructor(
     }
 
     /**
-     * Creates a new game: 1) API create (game_id, pin), 2) build create_game instruction with [amountLamports],
-     * 3) wallet signs and sends tx via Mobile Wallet Adapter, 4) on success show PIN screen.
+     * Creates a new game: 1) generate UUID client-side, 2) build & sign on-chain create_game tx,
+     * 3) on tx success call API to persist game in DB and get the PIN.
      */
     fun startNewGame(sender: ActivityResultSender, amountLamports: Long) {
         val address = _state.value.userAddress
@@ -118,57 +118,36 @@ class GameViewModel @Inject constructor(
             return
         }
         viewModelScope.launch {
-            Log.d(TAG, "startNewGame: creating game via API for $address")
             _state.update { it.copy(isLoading = true, error = "") }
-            val apiResult = gameApiUseCase.createGame(address)
-            apiResult
-                .onFailure { e ->
-                    Log.e(TAG, "startNewGame: API create failed", e)
-                    _state.update {
-                        it.copy(
-                            isLoading = false,
-                            error = e.message ?: "Failed to create game"
-                        )
-                    }
-                    return@launch
-                }
-            val result = apiResult.getOrNull() ?: return@launch
-            val gameId = result.gameId
-            val pin = result.pin
-            Log.d(TAG, "startNewGame: API ok gameId=$gameId pin=$pin")
+
+            val gameId = java.util.UUID.randomUUID().toString()
+            Log.d(TAG, "startNewGame: generated gameId=$gameId for $address")
+
             val gameIdBytes = escrowUseCase.gameIdToBytes(gameId)
             if (gameIdBytes == null) {
-                Log.e(TAG, "startNewGame: invalid game_id from API")
-                _state.update {
-                    it.copy(isLoading = false, error = "Invalid game id from API")
-                }
+                Log.e(TAG, "startNewGame: invalid generated game_id")
+                _state.update { it.copy(isLoading = false, error = "Invalid game id") }
                 return@launch
             }
             val creator = SolanaPublicKey.from(address)
             val createGameIx = escrowUseCase.buildCreateGameInstruction(creator, gameIdBytes, amountLamports)
-            Log.d(TAG, "startNewGame: createGameIx=$createGameIx")
             if (createGameIx == null) {
                 Log.e(TAG, "startNewGame: buildCreateGameInstruction returned null")
-                _state.update {
-                    it.copy(isLoading = false, error = "Failed to build create_game instruction")
-                }
+                _state.update { it.copy(isLoading = false, error = "Failed to build create_game instruction") }
                 return@launch
             }
             Log.d(TAG, "startNewGame: instruction built, opening wallet session")
             try {
                 val txResult = connect(sender) { authResult ->
                     withContext(Dispatchers.IO) {
-                        Log.d(TAG, "startNewGame: fetching latest blockhash before building tx")
                         val blockHash = solanaRpcUseCase.getLatestBlockHash()
                         Log.d(TAG, "startNewGame: blockhash=$blockHash, building transaction")
                         val createGameMessage = Message.Builder()
                             .addInstruction(createGameIx)
                             .setRecentBlockhash(blockHash)
                             .build()
-                        
                         val unsignedCreateGameTx = Transaction(createGameMessage)
-                        Log.d(TAG, "startNewGame: unsignedCreateGameTx=${unsignedCreateGameTx.serialize()}")
-                        Log.d(TAG, "startNewGame: sending transaction to wallet (signAndSendTransactions)")
+                        Log.d(TAG, "startNewGame: sending transaction to wallet")
                         signAndSendTransactions(arrayOf(unsignedCreateGameTx.serialize()))
                     }
                 }
@@ -178,11 +157,21 @@ class GameViewModel @Inject constructor(
                         val txSignatureBytes = txResult.successPayload?.signatures?.first()
                         txSignatureBytes?.let {
                             Log.i(TAG, "startNewGame: tx success signature=${Base58.encode(it)}")
+                            val apiResult = gameApiUseCase.createGame(address, gameId)
+                            apiResult.onFailure { e ->
+                                Log.e(TAG, "startNewGame: API create failed (on-chain already done)", e)
+                                _state.update {
+                                    it.copy(isLoading = false, error = "On-chain OK but API failed: ${e.message}")
+                                }
+                                return@launch
+                            }
+                            val result = apiResult.getOrNull() ?: return@launch
+                            Log.d(TAG, "startNewGame: API ok pin=${result.pin}")
                             _state.update {
                                 it.copy(
                                     isLoading = false,
                                     showNewGameConfigScreen = false,
-                                    gamePin = pin,
+                                    gamePin = result.pin,
                                     gameId = gameId,
                                     error = ""
                                 )

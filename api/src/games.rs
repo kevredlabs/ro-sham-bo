@@ -91,6 +91,7 @@ pub struct User {
 #[derive(Deserialize)]
 pub struct CreateGameRequest {
     pub creator_pubkey: String,
+    pub game_id: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -162,7 +163,9 @@ async fn create_game(
         return Err(ApiError::bad_request("creator_pubkey is required"));
     }
 
-    let game_id = Uuid::new_v4().to_string();
+    let game_id = body.game_id.clone()
+        .filter(|id| Uuid::parse_str(id).is_ok())
+        .unwrap_or_else(|| Uuid::new_v4().to_string());
     let pin = generate_pin();
     let created_at = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
