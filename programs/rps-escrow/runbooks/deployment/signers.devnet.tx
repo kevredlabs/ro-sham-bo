@@ -1,42 +1,6 @@
-# Devnet: signers for deploy + manual resolve of stuck games
+# Devnet: signers for program deployment
 
 signer "resolve_authority" "svm::secret_key" {
     description = "Authority that can call resolve (must match RESOLVE_AUTHORITY in program)"
     keypair_json = "./resolve_authority.json"
-}
-
-# --- Resolve stuck game (joined but not played) ---
-
-
-# Escrow account to close (PDA of the game).
-variable "game_escrow_address" {
-    description = "Game escrow account address (PDA) to resolve"
-    value = input.game_escrow_address
-    editable = true
-}
-
-# Winner receives full escrow balance (must be creator or joiner of the game).
-variable "winner" {
-    description = "Winner pubkey (creator or joiner)"
-    value = input.winner
-    editable = true
-}
-
-action "resolve_game" "svm::process_instructions" {
-    description = "Manually resolve a stuck game: send full escrow balance to winner and close account"
-    instruction {
-        program_idl = variable.program.idl
-        instruction_name = "resolve"
-        instruction_args = [variable.winner]
-        authority {
-            public_key = signer.resolve_authority.public_key
-        }
-        game_escrow {
-            public_key = variable.game_escrow_address
-        }
-        winner_destination {
-            public_key = variable.winner
-        }
-    }
-    signers = [signer.resolve_authority]
 }

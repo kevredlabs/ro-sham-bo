@@ -1,0 +1,8 @@
+addon "svm" {
+    rpc_api_url = input.rpc_api_url
+    network_id = input.network_id
+}
+
+variable "program" {
+    value = svm::get_program_from_anchor_project("rps_escrow")
+}

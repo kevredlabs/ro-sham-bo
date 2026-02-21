@@ -5,6 +5,12 @@ runbooks:
   - name: deployment
     description: Deploy programs
     location: runbooks/deployment
+  - name: resolve
+    description: Manually resolve a stuck game (send escrow to winner)
+    location: runbooks/resolve
+  - name: refund
+    description: Refund a stuck game (send escrow back to both players)
+    location: runbooks/refund
 environments:
   localnet:
       network_id: localnet
@@ -14,7 +20,10 @@ environments:
       rpc_api_url: https://api.devnet.solana.com
       payer_keypair_json: ~/.config/solana/id.json
       authority_keypair_json: ~/.config/solana/id.json
-      # resolve_game: fill in UI or pass -i game_escrow_address=... -i winner=...
+      # resolve / refund: fill in UI or pass --input game_escrow_address=... etc.
       game_escrow_address: ""
       winner: ""
+      vault_address: ""
+      creator: ""
+      joiner: ""
 

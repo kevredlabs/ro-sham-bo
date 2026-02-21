@@ -1,0 +1,54 @@
+# Devnet: refund a stuck game (joined but not played, refund both players)
+
+signer "resolve_authority" "svm::secret_key" {
+    description = "Authority that can call refund (must match RESOLVE_AUTHORITY in program)"
+    keypair_json = "./resolve_authority.json"
+}
+
+variable "game_escrow_address" {
+    description = "Game escrow account address (PDA) to refund"
+    value = input.game_escrow_address
+    editable = true
+}
+
+variable "vault_address" {
+    description = "Vault PDA address (derived from game escrow)"
+    value = input.vault_address
+    editable = true
+}
+
+variable "creator" {
+    description = "Creator pubkey of the game to refund"
+    value = input.creator
+    editable = true
+}
+
+variable "joiner" {
+    description = "Joiner pubkey of the game to refund"
+    value = input.joiner
+    editable = true
+}
+
+action "refund_game" "svm::process_instructions" {
+    description = "Refund a stuck game: send escrow balance back to both creator and joiner, then close account"
+    instruction {
+        program_idl = variable.program.idl
+        instruction_name = "refund"
+        authority {
+            public_key = signer.resolve_authority.public_key
+        }
+        game_escrow {
+            public_key = variable.game_escrow_address
+        }
+        vault {
+            public_key = variable.vault_address
+        }
+        creator {
+            public_key = variable.creator
+        }
+        joiner {
+            public_key = variable.joiner
+        }
+    }
+    signers = [signer.resolve_authority]
+}
