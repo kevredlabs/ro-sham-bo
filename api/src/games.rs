@@ -533,7 +533,7 @@ async fn join_game(
         }
         None => {
             log::warn!("Join game failed: no waiting game for pin");
-            Err(ApiError::not_found("No game found for this PIN or game is full"))
+            Err(ApiError::not_found("No Game Available for this PIN"))
         }
     }
 }
