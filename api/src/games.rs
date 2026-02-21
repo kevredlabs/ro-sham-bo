@@ -35,6 +35,12 @@ pub struct JoinGameResponse {
     pub game_id: String,
 }
 
+/// Request body for cancelling a game.
+#[derive(Deserialize)]
+pub struct CancelGameRequest {
+    pub creator_pubkey: String,
+}
+
 /// Request body for submitting a RPS choice.
 #[derive(Deserialize)]
 pub struct SubmitChoiceRequest {
@@ -74,6 +80,7 @@ pub enum GameStatus {
     Waiting,
     Active,
     Finished,
+    Cancelled,
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -422,6 +429,48 @@ async fn submit_choice(
     Ok(Json(game))
 }
 
+async fn cancel_game(
+    State(state): State<AppState>,
+    Path(path): Path<GameIdPath>,
+    Json(body): Json<CancelGameRequest>,
+) -> Result<Json<Game>, ApiError> {
+    let creator_pubkey = body.creator_pubkey.trim();
+    if creator_pubkey.is_empty() {
+        return Err(ApiError::bad_request("creator_pubkey is required"));
+    }
+
+    let games = state.db.collection::<Game>("games");
+    let filter = doc! {
+        "_id": &path.game_id,
+        "creator_pubkey": creator_pubkey,
+        "status": "waiting",
+        "joiner_pubkey": null,
+    };
+    let update = doc! {
+        "$set": { "status": "cancelled" }
+    };
+    let opts = mongodb::options::FindOneAndUpdateOptions::builder()
+        .return_document(mongodb::options::ReturnDocument::After)
+        .build();
+    let updated = games
+        .find_one_and_update(filter, update, opts)
+        .await
+        .map_err(|e| {
+            log::error!("Failed to cancel game: {}", e);
+            ApiError::internal(e.to_string())
+        })?;
+
+    match updated {
+        Some(game) => {
+            log::info!("Game cancelled game_id={} creator_pubkey={}", game.id, creator_pubkey);
+            Ok(Json(game))
+        }
+        None => Err(ApiError::not_found(
+            "Game not found, already joined, or not owned by this creator",
+        )),
+    }
+}
+
 async fn join_game(
     State(state): State<AppState>,
     Json(body): Json<JoinGameRequest>,
@@ -495,5 +544,6 @@ pub fn games_routes(state: AppState) -> Router {
         .route("/games/join", post(join_game))
         .route("/games/:game_id", get(get_game))
         .route("/games/:game_id/choice", post(submit_choice))
+        .route("/games/:game_id/cancel", post(cancel_game))
         .with_state(state)
 }

@@ -275,6 +275,13 @@ class GameViewModel @Inject constructor(
                         val sig = txResult.successPayload?.signatures?.first()
                         sig?.let {
                             Log.i(TAG, "cancelGame: tx success signature=${Base58.encode(it)}")
+                            gameApiUseCase.cancelGame(gameId, address)
+                                .onSuccess {
+                                    Log.i(TAG, "cancelGame: API cancel success")
+                                }
+                                .onFailure { e ->
+                                    Log.w(TAG, "cancelGame: API cancel failed (on-chain already done)", e)
+                                }
                             _state.update {
                                 it.copy(
                                     isLoading = false,

@@ -187,6 +187,31 @@ class GameApiUseCase @Inject constructor() {
             }
         }.getOrElse { e -> Result.failure(e) }
     }
+    /**
+     * Cancels a game on the API (sets status to "cancelled").
+     * Should be called after the on-chain cancel tx succeeds.
+     */
+    suspend fun cancelGame(gameId: String, creatorPubkey: String): Result<Unit> = withContext(Dispatchers.IO) {
+        val body = JSONObject().apply {
+            put("creator_pubkey", creatorPubkey)
+        }.toString()
+        val request = Request.Builder()
+            .url("$baseUrl/games/$gameId/cancel")
+            .post(body.toRequestBody("application/json".toMediaType()))
+            .build()
+        runCatching {
+            client.newCall(request).execute().use { response ->
+                val responseBody = response.body?.string() ?: ""
+                if (!response.isSuccessful) {
+                    val message = try {
+                        JSONObject(responseBody).optString("error", responseBody).ifEmpty { "HTTP ${response.code}" }
+                    } catch (_: Exception) { "HTTP ${response.code}: $responseBody" }
+                    return@runCatching Result.failure<Unit>(Exception(message))
+                }
+                Result.success(Unit)
+            }
+        }.getOrElse { e -> Result.failure(e) }
+    }
 }
 
 data class CreateGameResult(
