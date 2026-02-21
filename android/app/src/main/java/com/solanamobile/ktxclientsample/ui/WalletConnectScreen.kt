@@ -26,7 +26,11 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.solana.mobilewalletadapter.clientlib.ActivityResultSender
+import androidx.compose.ui.unit.sp
 import com.solanamobile.ktxclientsample.ui.theme.PixelCyan
+import com.solanamobile.ktxclientsample.ui.theme.PixelDarkBlue
+import com.solanamobile.ktxclientsample.ui.theme.PixelLightBlue
+import com.solanamobile.ktxclientsample.ui.theme.PixelTeal
 import com.solanamobile.ktxclientsample.ui.theme.PixelYellow
 import com.solanamobile.ktxclientsample.viewmodel.GameViewModel
 import kotlinx.coroutines.flow.collectLatest
@@ -70,12 +74,33 @@ fun WalletConnectScreen(
                     verticalArrangement = Arrangement.Center,
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Text(
-                        text = "SEEKER RPS",
-                        style = MaterialTheme.typography.h3,
-                        color = PixelCyan,
-                        textAlign = TextAlign.Center
+                    val titleStyle = MaterialTheme.typography.h3.copy(
+                        fontSize = 32.sp,
+                        letterSpacing = 3.sp
                     )
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        PixelShadowText(
+                            text = "ROCK",
+                            color = PixelCyan,
+                            shadowColor = PixelTeal,
+                            style = titleStyle
+                        )
+                        PixelShadowText(
+                            text = "PAPER",
+                            color = PixelLightBlue,
+                            shadowColor = PixelDarkBlue,
+                            style = titleStyle
+                        )
+                        PixelShadowText(
+                            text = "SCISSORS",
+                            color = PixelCyan,
+                            shadowColor = PixelTeal,
+                            style = titleStyle
+                        )
+                    }
                     Spacer(modifier = Modifier.height(12.dp))
                     Text(
                         text = "Connect your wallet\nto start playing",
@@ -97,7 +122,11 @@ fun WalletConnectScreen(
                             text = "Connect Wallet",
                             onClick = { viewModel.signIn(intentSender) },
                             enabled = !viewState.isLoading,
-                            modifier = Modifier.fillMaxWidth()
+                            modifier = Modifier.fillMaxWidth(),
+                            buttonHeight = 64.dp,
+                            textStyle = MaterialTheme.typography.h5,
+                            borderWidth = 3.dp,
+                            shadowOffset = 5.dp
                         )
                     }
                 }

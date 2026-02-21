@@ -18,6 +18,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.solanamobile.ktxclientsample.ui.theme.PixelBlack
@@ -39,28 +40,29 @@ fun PixelButton(
     bgColor: Color = PixelCyan,
     shadowColor: Color = PixelDarkBlue,
     textColor: Color = PixelBlack,
-    buttonHeight: Dp = 48.dp
+    textStyle: TextStyle? = null,
+    buttonHeight: Dp = 48.dp,
+    borderWidth: Dp = 2.dp,
+    shadowOffset: Dp = 4.dp
 ) {
     val actualBg = if (enabled) bgColor else PixelGray
     val actualShadow = if (enabled) shadowColor else PixelDarkGray
     val actualText = if (enabled) textColor else PixelWhite.copy(alpha = 0.5f)
 
-    Box(modifier = modifier.height(buttonHeight + 4.dp)) {
-        // Drop shadow (offset)
+    Box(modifier = modifier.height(buttonHeight + shadowOffset)) {
         Box(
             modifier = Modifier
-                .offset(x = 4.dp, y = 4.dp)
+                .offset(x = shadowOffset, y = shadowOffset)
                 .fillMaxWidth()
                 .height(buttonHeight)
                 .background(actualShadow, RectangleShape)
         )
-        // Main button
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(buttonHeight)
                 .background(actualBg, RectangleShape)
-                .border(2.dp, PixelWhite, RectangleShape)
+                .border(borderWidth, PixelWhite, RectangleShape)
                 .then(
                     if (enabled) Modifier.clickable(onClick = onClick)
                     else Modifier
@@ -69,10 +71,37 @@ fun PixelButton(
         ) {
             Text(
                 text = text.uppercase(),
-                style = MaterialTheme.typography.button,
+                style = textStyle ?: MaterialTheme.typography.button,
                 color = actualText
             )
         }
+    }
+}
+
+/**
+ * Text with a pixel-art drop shadow (offset duplicate behind the main text).
+ */
+@Composable
+fun PixelShadowText(
+    text: String,
+    color: Color,
+    shadowColor: Color,
+    style: TextStyle,
+    modifier: Modifier = Modifier,
+    shadowOffset: Dp = 3.dp
+) {
+    Box(modifier = modifier) {
+        Text(
+            text = text,
+            style = style,
+            color = shadowColor,
+            modifier = Modifier.offset(x = shadowOffset, y = shadowOffset)
+        )
+        Text(
+            text = text,
+            style = style,
+            color = color
+        )
     }
 }
 
