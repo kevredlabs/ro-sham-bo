@@ -271,38 +271,36 @@ fun CurrentGameScreen(
                                     textAlign = TextAlign.Center
                                 )
                             } else {
+                                val resultStyle = MaterialTheme.typography.body1.copy(
+                                    letterSpacing = 1.sp
+                                )
+                                val resultMsg = (gameResultMessage ?: "").uppercase()
+                                if (resultMsg.isNotEmpty()) {
+                                    Text(
+                                        text = resultMsg,
+                                        style = resultStyle,
+                                        color = PixelLightGray,
+                                        textAlign = TextAlign.Center
+                                    )
+                                    Spacer(modifier = Modifier.height(16.dp))
+                                }
                                 if (betSol > 0) {
                                     Text(
                                         text = "BET: ${"%.3f".format(betSol)} SOL",
-                                        style = MaterialTheme.typography.body1.copy(
-                                            letterSpacing = 1.sp
-                                        ),
+                                        style = resultStyle,
                                         color = PixelLightGray
                                     )
-
                                     Spacer(modifier = Modifier.height(8.dp))
-
                                     val label = if (isWinner) "PROFIT" else "LOSS"
                                     val sign = if (isWinner) "+" else "-"
                                     val potFormatted = "%.3f".format(potSol)
                                     Text(
                                         text = "$label: $sign $potFormatted SOL",
-                                        style = MaterialTheme.typography.h5.copy(
-                                            fontSize = 22.sp,
-                                            letterSpacing = 2.sp
-                                        ),
-                                        color = if (isWinner) PixelCyan else PixelOrange
+                                        style = resultStyle,
+                                        color = if (isWinner) PixelCyan else PixelOrange,
+                                        maxLines = 1
                                     )
                                 }
-
-                                Spacer(modifier = Modifier.height(16.dp))
-
-                                Text(
-                                    text = (gameResultMessage ?: "").uppercase(),
-                                    style = MaterialTheme.typography.body1,
-                                    color = PixelLightGray,
-                                    textAlign = TextAlign.Center
-                                )
                             }
                         }
                     }
@@ -374,12 +372,13 @@ private fun RevealCollisionScreen(
             val centerY = h / 2f
 
             val approach = if (showImpact) 1f else animatedProgress
-            val leftFistX = centerX - 60.dp.toPx() + (40.dp.toPx() * approach)
-            val rightFistX = centerX + 60.dp.toPx() - (40.dp.toPx() * approach)
-            val fistY = centerY - 3 * px
+            val fistWidthPx = 8 * px
+            val leftFistX = centerX - 60.dp.toPx() + (40.dp.toPx() * approach) - fistWidthPx / 2f
+            val rightFistX = centerX + 60.dp.toPx() - (40.dp.toPx() * approach) - fistWidthPx / 2f
+            val fistY = centerY - 4 * px
 
-            drawFist(leftFistX - 3 * px, fistY, px, PixelCyan, PixelTeal, false)
-            drawFist(rightFistX - 3 * px, fistY, px, PixelOrange, PixelRed, true)
+            drawFist(leftFistX, fistY, px, PixelCyan, PixelTeal, false)
+            drawFist(rightFistX, fistY, px, PixelOrange, PixelRed, true)
 
             if (showImpact) {
                 val impactAlpha = if (countdownNumber == 0) 0.6f else 1f
@@ -405,35 +404,46 @@ private fun RevealCollisionScreen(
     }
 }
 
+/**
+ * Draws a closed fist in pixel art (profile view), as if one of two players facing each other.
+ * Left fist: fingers toward center (right); right fist: mirrored, fingers toward center (left).
+ * 8x8 grid: knuckles on top, main hand body, heel and wrist at bottom. Shadow suggests volume.
+ */
 private fun DrawScope.drawFist(
     x: Float, y: Float, px: Float,
     mainColor: Color, shadowColor: Color,
     mirrored: Boolean
 ) {
+    val cols = 8
     fun pixel(col: Int, row: Int, color: Color) {
-        val actualCol = if (mirrored) 5 - col else col
+        val actualCol = if (mirrored) (cols - 1) - col else col
         drawRect(
             color = color,
             topLeft = Offset(x + actualCol * px, y + row * px),
             size = Size(px, px)
         )
     }
-    // Row 0: top of fist
-    pixel(1, 0, mainColor); pixel(2, 0, mainColor); pixel(3, 0, mainColor); pixel(4, 0, mainColor)
-    // Row 1
-    pixel(0, 1, mainColor); pixel(1, 1, mainColor); pixel(2, 1, mainColor)
-    pixel(3, 1, mainColor); pixel(4, 1, mainColor); pixel(5, 1, mainColor)
-    // Row 2
+    // Row 0: knuckles (curved top)
+    pixel(2, 0, mainColor); pixel(3, 0, mainColor); pixel(4, 0, mainColor); pixel(5, 0, mainColor)
+    // Row 1: below knuckles
+    pixel(1, 1, mainColor); pixel(2, 1, mainColor); pixel(3, 1, mainColor)
+    pixel(4, 1, mainColor); pixel(5, 1, mainColor); pixel(6, 1, mainColor)
+    // Row 2: main fist (finger side starts to curve)
     pixel(0, 2, mainColor); pixel(1, 2, mainColor); pixel(2, 2, mainColor)
-    pixel(3, 2, mainColor); pixel(4, 2, mainColor); pixel(5, 2, mainColor)
-    // Row 3: wider
-    pixel(0, 3, mainColor); pixel(1, 3, mainColor); pixel(2, 3, mainColor)
-    pixel(3, 3, mainColor); pixel(4, 3, mainColor); pixel(5, 3, mainColor)
-    // Row 4
-    pixel(0, 4, shadowColor); pixel(1, 4, mainColor); pixel(2, 4, mainColor)
-    pixel(3, 4, mainColor); pixel(4, 4, shadowColor); pixel(5, 4, shadowColor)
-    // Row 5: bottom
-    pixel(1, 5, shadowColor); pixel(2, 5, shadowColor); pixel(3, 5, shadowColor); pixel(4, 5, shadowColor)
+    pixel(3, 2, mainColor); pixel(4, 2, mainColor); pixel(5, 2, mainColor); pixel(6, 2, mainColor)
+    // Row 3-4: fullest part of fist
+    pixel(0, 3, mainColor); pixel(1, 3, mainColor); pixel(2, 3, mainColor); pixel(3, 3, mainColor)
+    pixel(4, 3, mainColor); pixel(5, 3, mainColor); pixel(6, 3, mainColor); pixel(7, 3, mainColor)
+    pixel(0, 4, mainColor); pixel(1, 4, mainColor); pixel(2, 4, mainColor); pixel(3, 4, mainColor)
+    pixel(4, 4, mainColor); pixel(5, 4, mainColor); pixel(6, 4, mainColor); pixel(7, 4, mainColor)
+    // Row 5: bottom of hand, underside shadow
+    pixel(0, 5, shadowColor); pixel(1, 5, mainColor); pixel(2, 5, mainColor); pixel(3, 5, mainColor)
+    pixel(4, 5, mainColor); pixel(5, 5, mainColor); pixel(6, 5, mainColor)
+    // Row 6: heel of hand
+    pixel(1, 6, shadowColor); pixel(2, 6, mainColor); pixel(3, 6, mainColor)
+    pixel(4, 6, mainColor); pixel(5, 6, mainColor)
+    // Row 7: wrist (narrow)
+    pixel(2, 7, shadowColor); pixel(3, 7, mainColor); pixel(4, 7, mainColor)
 }
 
 private fun DrawScope.drawImpactCloud(
