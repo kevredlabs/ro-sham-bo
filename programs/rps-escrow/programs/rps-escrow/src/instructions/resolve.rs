@@ -39,6 +39,8 @@ pub struct Resolve<'info> {
     #[account(mut)]
     pub creator: AccountInfo<'info>,
 
+    #[account(mut)]
+    pub treasury: SystemAccount<'info>,
     pub system_program: Program<'info, System>
 }
 
@@ -58,16 +60,33 @@ impl<'info> Resolve<'info> {
             EscrowError::InvalidWinner
         );
 
+
         let payout = self.game_escrow.amount_per_player.checked_mul(2).ok_or(EscrowError::InvalidAmount)?;
+        // 3% fee to treasury
+        let treasury_fee = payout
+            .checked_mul(3)
+            .and_then(|v| v.checked_div(100))
+            .ok_or(EscrowError::InvalidAmount)?;
+        let winner_amount = payout.checked_sub(treasury_fee).ok_or(EscrowError::InvalidAmount)?;
 
         require!(self.vault.lamports() >= payout, EscrowError::InsufficientBalance);
 
         let seeds: &[&[&[u8]]] = &[&[
-        b"vault", 
-        &self.game_escrow.key().to_bytes(),
-        &[self.game_escrow.vault_bump]]];
+            b"vault",
+            &self.game_escrow.key().to_bytes(),
+            &[self.game_escrow.vault_bump],
+        ]];
 
-
+        // Vault is a PDA: both transfers from vault must be signed with vault seeds.
+        let cpi_ctx_treasury = CpiContext::new_with_signer(
+            self.system_program.to_account_info(),
+            Transfer {
+                from: self.vault.to_account_info(),
+                to: self.treasury.to_account_info(),
+            },
+            seeds,
+        );
+        transfer(cpi_ctx_treasury, treasury_fee)?; // send 3% fee to the treasury
 
         let cpi_ctx = CpiContext::new_with_signer(
             self.system_program.to_account_info(),
@@ -77,7 +96,7 @@ impl<'info> Resolve<'info> {
             },
             seeds);
 
-        transfer(cpi_ctx, payout)?; // send the full amount to the winner
+        transfer(cpi_ctx, winner_amount)?; // send (payout - 3% fee) to the winner
 
 
         Ok(()) // close the escrow account and give back rent to the creator
