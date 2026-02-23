@@ -1,13 +1,5 @@
 package com.solanamobile.ktxclientsample.ui
 
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,23 +9,16 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -44,9 +29,7 @@ import com.solanamobile.ktxclientsample.ui.theme.PixelLightGray
 import com.solanamobile.ktxclientsample.ui.theme.PixelOrange
 import com.solanamobile.ktxclientsample.ui.theme.PixelRed
 import com.solanamobile.ktxclientsample.ui.theme.PixelTeal
-import com.solanamobile.ktxclientsample.ui.theme.PixelWhite
 import com.solanamobile.ktxclientsample.ui.theme.PixelYellow
-import kotlinx.coroutines.delay
 
 @Composable
 fun CurrentGameScreen(
@@ -71,6 +54,7 @@ fun CurrentGameScreen(
                 .fillMaxSize()
                 .padding(24.dp)
         ) {
+            Spacer(modifier = Modifier.height(20.dp))
             PixelOutlinedButton(
                 text = "< Menu",
                 onClick = onBack,
@@ -101,12 +85,21 @@ fun CurrentGameScreen(
                     }
                 }
                 "RESULT_COUNTDOWN" -> {
-                    RevealCollisionScreen(
-                        countdownNumber = countdownNumber,
+                    Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .weight(1f)
-                    )
+                            .weight(1f),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = countdownNumber.toString(),
+                            style = MaterialTheme.typography.h3.copy(
+                                fontSize = 96.sp,
+                                letterSpacing = 4.sp
+                            ),
+                            color = PixelYellow
+                        )
+                    }
                 }
                 "SELECTION" -> {
                     Box(
@@ -272,6 +265,7 @@ fun CurrentGameScreen(
                                 )
                             } else {
                                 val resultStyle = MaterialTheme.typography.body1.copy(
+                                    fontSize = 18.sp,
                                     letterSpacing = 1.sp
                                 )
                                 val resultMsg = (gameResultMessage ?: "").uppercase()
@@ -282,7 +276,7 @@ fun CurrentGameScreen(
                                         color = PixelLightGray,
                                         textAlign = TextAlign.Center
                                     )
-                                    Spacer(modifier = Modifier.height(16.dp))
+                                    Spacer(modifier = Modifier.height(24.dp))
                                 }
                                 if (betSol > 0) {
                                     Text(
@@ -290,7 +284,7 @@ fun CurrentGameScreen(
                                         style = resultStyle,
                                         color = PixelLightGray
                                     )
-                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Spacer(modifier = Modifier.height(24.dp))
                                     val label = if (isWinner) "PROFIT" else "LOSS"
                                     val sign = if (isWinner) "+" else "-"
                                     val potFormatted = "%.3f".format(potSol)
@@ -324,164 +318,3 @@ fun CurrentGameScreen(
     }
 }
 
-@Composable
-private fun RevealCollisionScreen(
-    countdownNumber: Int,
-    modifier: Modifier = Modifier
-) {
-    var animProgress by remember { mutableFloatStateOf(0f) }
-    val animatedProgress by animateFloatAsState(
-        targetValue = animProgress,
-        animationSpec = tween(durationMillis = 800, easing = LinearEasing),
-        label = "collision"
-    )
-
-    LaunchedEffect(countdownNumber) {
-        animProgress = 0f
-        delay(100)
-        animProgress = 1f
-    }
-
-    val showImpact = countdownNumber <= 1
-    val infiniteTransition = rememberInfiniteTransition(label = "shake")
-    val shake by infiniteTransition.animateFloat(
-        initialValue = -3f,
-        targetValue = 3f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(80, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "shake"
-    )
-
-    Box(
-        modifier = modifier,
-        contentAlignment = Alignment.Center
-    ) {
-        Canvas(
-            modifier = Modifier
-                .size(280.dp, 200.dp)
-                .then(
-                    if (showImpact) Modifier.offset(x = shake.dp) else Modifier
-                )
-        ) {
-            val w = size.width
-            val h = size.height
-            val px = w / 28f
-            val centerX = w / 2f
-            val centerY = h / 2f
-
-            val approach = if (showImpact) 1f else animatedProgress
-            val fistWidthPx = 8 * px
-            val leftFistX = centerX - 60.dp.toPx() + (40.dp.toPx() * approach) - fistWidthPx / 2f
-            val rightFistX = centerX + 60.dp.toPx() - (40.dp.toPx() * approach) - fistWidthPx / 2f
-            val fistY = centerY - 4 * px
-
-            drawFist(leftFistX, fistY, px, PixelCyan, PixelTeal, false)
-            drawFist(rightFistX, fistY, px, PixelOrange, PixelRed, true)
-
-            if (showImpact) {
-                val impactAlpha = if (countdownNumber == 0) 0.6f else 1f
-                drawImpactCloud(centerX, centerY, px, impactAlpha)
-            }
-        }
-
-        Column(
-            modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            if (countdownNumber > 0) {
-                Text(
-                    text = countdownNumber.toString(),
-                    style = MaterialTheme.typography.h3.copy(
-                        fontSize = 48.sp,
-                        letterSpacing = 4.sp
-                    ),
-                    color = PixelYellow
-                )
-            }
-        }
-    }
-}
-
-/**
- * Draws a closed fist in pixel art (profile view), as if one of two players facing each other.
- * Left fist: fingers toward center (right); right fist: mirrored, fingers toward center (left).
- * 8x8 grid: knuckles on top, main hand body, heel and wrist at bottom. Shadow suggests volume.
- */
-private fun DrawScope.drawFist(
-    x: Float, y: Float, px: Float,
-    mainColor: Color, shadowColor: Color,
-    mirrored: Boolean
-) {
-    val cols = 8
-    fun pixel(col: Int, row: Int, color: Color) {
-        val actualCol = if (mirrored) (cols - 1) - col else col
-        drawRect(
-            color = color,
-            topLeft = Offset(x + actualCol * px, y + row * px),
-            size = Size(px, px)
-        )
-    }
-    // Row 0: knuckles (curved top)
-    pixel(2, 0, mainColor); pixel(3, 0, mainColor); pixel(4, 0, mainColor); pixel(5, 0, mainColor)
-    // Row 1: below knuckles
-    pixel(1, 1, mainColor); pixel(2, 1, mainColor); pixel(3, 1, mainColor)
-    pixel(4, 1, mainColor); pixel(5, 1, mainColor); pixel(6, 1, mainColor)
-    // Row 2: main fist (finger side starts to curve)
-    pixel(0, 2, mainColor); pixel(1, 2, mainColor); pixel(2, 2, mainColor)
-    pixel(3, 2, mainColor); pixel(4, 2, mainColor); pixel(5, 2, mainColor); pixel(6, 2, mainColor)
-    // Row 3-4: fullest part of fist
-    pixel(0, 3, mainColor); pixel(1, 3, mainColor); pixel(2, 3, mainColor); pixel(3, 3, mainColor)
-    pixel(4, 3, mainColor); pixel(5, 3, mainColor); pixel(6, 3, mainColor); pixel(7, 3, mainColor)
-    pixel(0, 4, mainColor); pixel(1, 4, mainColor); pixel(2, 4, mainColor); pixel(3, 4, mainColor)
-    pixel(4, 4, mainColor); pixel(5, 4, mainColor); pixel(6, 4, mainColor); pixel(7, 4, mainColor)
-    // Row 5: bottom of hand, underside shadow
-    pixel(0, 5, shadowColor); pixel(1, 5, mainColor); pixel(2, 5, mainColor); pixel(3, 5, mainColor)
-    pixel(4, 5, mainColor); pixel(5, 5, mainColor); pixel(6, 5, mainColor)
-    // Row 6: heel of hand
-    pixel(1, 6, shadowColor); pixel(2, 6, mainColor); pixel(3, 6, mainColor)
-    pixel(4, 6, mainColor); pixel(5, 6, mainColor)
-    // Row 7: wrist (narrow)
-    pixel(2, 7, shadowColor); pixel(3, 7, mainColor); pixel(4, 7, mainColor)
-}
-
-private fun DrawScope.drawImpactCloud(
-    cx: Float, cy: Float, px: Float,
-    alpha: Float
-) {
-    val sparkColor = PixelYellow.copy(alpha = alpha)
-    val whiteColor = PixelWhite.copy(alpha = alpha * 0.8f)
-
-    // Star/burst pattern around collision point
-    val offsets = listOf(
-        -2f to -3f, 2f to -3f,
-        -3f to -1f, 3f to -1f,
-        -4f to 0f, 4f to 0f,
-        -3f to 1f, 3f to 1f,
-        -2f to 3f, 2f to 3f,
-        0f to -4f, 0f to 4f,
-        -1f to -2f, 1f to -2f,
-        -1f to 2f, 1f to 2f,
-    )
-    for ((dx, dy) in offsets) {
-        drawRect(
-            color = sparkColor,
-            topLeft = Offset(cx + dx * px - px / 2, cy + dy * px - px / 2),
-            size = Size(px, px)
-        )
-    }
-    // Center white flash
-    val centerOffsets = listOf(
-        -1f to -1f, 0f to -1f, 1f to -1f,
-        -1f to 0f, 0f to 0f, 1f to 0f,
-        -1f to 1f, 0f to 1f, 1f to 1f,
-    )
-    for ((dx, dy) in centerOffsets) {
-        drawRect(
-            color = whiteColor,
-            topLeft = Offset(cx + dx * px - px / 2, cy + dy * px - px / 2),
-            size = Size(px, px)
-        )
-    }
-}

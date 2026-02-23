@@ -51,6 +51,7 @@ fun NewGameConfigScreen(
                 .padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            Spacer(modifier = Modifier.height(20.dp))
             PixelOutlinedButton(
                 text = "< Back",
                 onClick = onBack,
