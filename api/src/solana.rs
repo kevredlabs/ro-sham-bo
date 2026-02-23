@@ -44,6 +44,11 @@ pub fn system_program_id() -> Pubkey {
     Pubkey::from_str("11111111111111111111111111111111").unwrap()
 }
 
+/// Treasury pubkey for resolve (receives 3% fee). Must match program constant TREASURY_PUBKEY.
+pub fn treasury_pubkey() -> Pubkey {
+    Pubkey::from_str("Ft6kMwkButM1J7iHJBJTb8QFEBuoBPnG1jq83HMRE9mF").unwrap()
+}
+
 /// Load keypair from a JSON file (array of 64 bytes).
 pub fn load_keypair(path: &std::path::Path) -> Result<Keypair, String> {
     let bytes: Vec<u8> = serde_json::from_reader(std::fs::File::open(path).map_err(|e| e.to_string())?)
@@ -89,6 +94,7 @@ pub fn resolve_game(
             vault,
             winner_destination: winner,
             creator,
+            treasury: treasury_pubkey(),
             system_program: system_program_id(),
         })
         .args(args::Resolve { winner })
