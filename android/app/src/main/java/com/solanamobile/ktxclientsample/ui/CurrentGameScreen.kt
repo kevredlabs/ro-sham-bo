@@ -225,7 +225,8 @@ fun CurrentGameScreen(
                         contentAlignment = Alignment.Center
                     ) {
                         Column(
-                            horizontalAlignment = Alignment.CenterHorizontally
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier.fillMaxWidth()
                         ) {
                             val resultTitle = when (isWinner) {
                                 true -> "YOU WON"
@@ -275,26 +276,35 @@ fun CurrentGameScreen(
                                         text = resultMsg,
                                         style = resultStyle,
                                         color = PixelLightGray,
-                                        textAlign = TextAlign.Center
+                                        textAlign = TextAlign.Center,
+                                        modifier = Modifier.fillMaxWidth()
                                     )
                                     Spacer(modifier = Modifier.height(24.dp))
                                 }
                                 if (betSol > 0) {
-                                    Text(
-                                        text = "BET: ${"%.3f".format(betSol)} SOL",
-                                        style = resultStyle,
-                                        color = PixelLightGray
-                                    )
-                                    Spacer(modifier = Modifier.height(24.dp))
-                                    val label = if (isWinner) "PROFIT" else "LOSS"
-                                    val sign = if (isWinner) "+" else "-"
-                                    val potFormatted = "%.3f".format(potSol)
-                                    Text(
-                                        text = "$label: $sign $potFormatted SOL",
-                                        style = resultStyle,
-                                        color = if (isWinner) PixelCyan else PixelOrange,
-                                        maxLines = 1
-                                    )
+                                    Column(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalAlignment = Alignment.CenterHorizontally
+                                    ) {
+                                        Text(
+                                            text = "BET: ${"%.3f".format(betSol)} SOL",
+                                            style = resultStyle,
+                                            color = PixelLightGray,
+                                            modifier = Modifier.fillMaxWidth(),
+                                            textAlign = TextAlign.Center
+                                        )
+                                        Spacer(modifier = Modifier.height(24.dp))
+                                        val label = if (isWinner) "PROFIT" else "LOSS"
+                                        val sign = if (isWinner) "+" else "-"
+                                        val potFormatted = "%.3f".format(potSol)
+                                        Text(
+                                            text = "$label: $sign $potFormatted SOL",
+                                            style = resultStyle,
+                                            color = if (isWinner) PixelCyan else PixelOrange,
+                                            modifier = Modifier.fillMaxWidth(),
+                                            textAlign = TextAlign.Center
+                                        )
+                                    }
                                 }
                             }
                         }
