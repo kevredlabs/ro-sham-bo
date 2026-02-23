@@ -31,6 +31,7 @@ import org.bitcoinj.base.Base58
 import javax.inject.Inject
 
 data class GameViewState(
+    val connectionLoaded: Boolean = false,
     val isLoading: Boolean = false,
     val solBalance: Double = 0.0,
     val userAddress: String = "",
@@ -76,15 +77,20 @@ class GameViewModel @Inject constructor(
         val persistedConn = persistanceUseCase.getWalletConnection()
 
         if (persistedConn is Connected) {
-            viewModelScope.launch {
-                _state.value.copy(
+            _state.update {
+                it.copy(
+                    connectionLoaded = true,
                     userAddress = persistedConn.publicKey.base58(),
-                    userLabel = persistedConn.accountLabel,
-                    solBalance = solanaRpcUseCase.getBalance(persistedConn.publicKey)
-                ).updateViewState()
+                    userLabel = persistedConn.accountLabel
+                )
             }
-
             walletAdapter.authToken = persistedConn.authToken
+            viewModelScope.launch {
+                val balance = solanaRpcUseCase.getBalance(persistedConn.publicKey)
+                _state.update { it.copy(solBalance = balance) }
+            }
+        } else {
+            _state.update { it.copy(connectionLoaded = true) }
         }
     }
 

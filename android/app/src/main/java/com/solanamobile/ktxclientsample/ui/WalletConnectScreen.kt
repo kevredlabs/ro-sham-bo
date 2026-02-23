@@ -44,10 +44,6 @@ fun WalletConnectScreen(
     val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(Unit) {
-        viewModel.loadConnection()
-    }
-
-    LaunchedEffect(Unit) {
         viewModel.viewState.collectLatest { state ->
             if (state.error.isNotEmpty()) {
                 snackbarHostState.showSnackbar(state.error, "DISMISS").let { result ->
