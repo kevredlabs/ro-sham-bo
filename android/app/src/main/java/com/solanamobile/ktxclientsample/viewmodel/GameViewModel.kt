@@ -52,7 +52,11 @@ data class GameViewState(
     /** Countdown value to display (3, 2, 1). */
     val countdownNumber: Int = 3,
     /** Result message after both played: "rock beats scissors, winner is: pubkey". */
-    val gameResultMessage: String? = null
+    val gameResultMessage: String? = null,
+    /** Whether the current user won (true), lost (false), or draw (null). */
+    val isWinner: Boolean? = null,
+    /** Stake amount per player in lamports for the current game. */
+    val gameAmountPerPlayer: Long = 0L
 )
 
 @HiltViewModel
@@ -116,7 +120,7 @@ class GameViewModel @Inject constructor(
      * Creates a new game: 1) generate UUID client-side, 2) build & sign on-chain create_game tx,
      * 3) on tx success call API to persist game in DB and get the PIN.
      */
-    fun startNewGame(sender: ActivityResultSender, amountLamports: Long) {
+    fun startNewGame(sender: ActivityResultSender, amountPerPlayer: Long) {
         val address = _state.value.userAddress
         if (address.isEmpty()) {
             Log.w(TAG, "startNewGame: no wallet connected")
@@ -136,7 +140,7 @@ class GameViewModel @Inject constructor(
                 return@launch
             }
             val creator = SolanaPublicKey.from(address)
-            val createGameIx = escrowUseCase.buildCreateGameInstruction(creator, gameIdBytes, amountLamports)
+            val createGameIx = escrowUseCase.buildCreateGameInstruction(creator, gameIdBytes, amountPerPlayer)
             if (createGameIx == null) {
                 Log.e(TAG, "startNewGame: buildCreateGameInstruction returned null")
                 _state.update { it.copy(isLoading = false, error = "Failed to build create_game instruction") }
@@ -163,7 +167,7 @@ class GameViewModel @Inject constructor(
                         val txSignatureBytes = txResult.successPayload?.signatures?.first()
                         txSignatureBytes?.let {
                             Log.i(TAG, "startNewGame: tx success signature=${Base58.encode(it)}")
-                            val apiResult = gameApiUseCase.createGame(address, gameId)
+                            val apiResult = gameApiUseCase.createGame(address, gameId, amountPerPlayer)
                             apiResult.onFailure { e ->
                                 Log.e(TAG, "startNewGame: API create failed (on-chain already done)", e)
                                 _state.update {
@@ -179,6 +183,7 @@ class GameViewModel @Inject constructor(
                                     showNewGameConfigScreen = false,
                                     gamePin = result.pin,
                                     gameId = gameId,
+                                    gameAmountPerPlayer = amountPerPlayer,
                                     error = ""
                                 )
                             }
@@ -430,6 +435,7 @@ class GameViewModel @Inject constructor(
                                     isLoading = false,
                                     showJoinGameScreen = false,
                                     joinedGameId = gameId,
+                                    gameAmountPerPlayer = gameState.amountPerPlayer,
                                     error = ""
                                 )
                             }
@@ -472,7 +478,9 @@ class GameViewModel @Inject constructor(
                 joinedGameId = null,
                 gamePhase = null,
                 countdownNumber = 3,
-                gameResultMessage = null
+                gameResultMessage = null,
+                isWinner = null,
+                gameAmountPerPlayer = 0L
             )
         }
     }
@@ -564,20 +572,20 @@ class GameViewModel @Inject constructor(
                         val bothChosen = gameState.creatorChoice != null && gameState.joinerChoice != null
                         if (bothChosen) {
                             if (gameState.winnerPubkey != null && gameState.status == "finished") {
-                                val message = buildResultMessage(gameState)
+                                val result = buildGameResult(gameState)
                                 _state.update {
                                     it.copy(
                                         gamePhase = "RESULT_COUNTDOWN",
                                         countdownNumber = 3,
-                                        gameResultMessage = message
+                                        gameResultMessage = result.message,
+                                        isWinner = result.isWinner
                                     )
                                 }
                                 startResultCountdown(gameId)
                                 return@launch
                             }
-                            // Draw: both chose but no winner (round will be cleared by API)
-                            val drawMessage = buildResultMessage(gameState)
-                            startDrawWithCountdown(gameId, drawMessage)
+                            val drawResult = buildGameResult(gameState)
+                            startDrawWithCountdown(gameId, drawResult.message)
                             return@launch
                         }
                     }
@@ -585,14 +593,20 @@ class GameViewModel @Inject constructor(
         }
     }
 
-    private fun buildResultMessage(gameState: com.solanamobile.ktxclientsample.usecase.GameState): String {
+    private data class GameResult(val message: String, val isWinner: Boolean?)
+
+    private fun buildGameResult(gameState: com.solanamobile.ktxclientsample.usecase.GameState): GameResult {
         val winner = gameState.winnerPubkey
         val c = gameState.creatorChoice ?: ""
         val j = gameState.joinerChoice ?: ""
+        val myAddress = _state.value.userAddress
         return when {
-            winner == null -> "Draw: $c vs $j"
-            winner == gameState.creatorPubkey -> "$c beats $j, winner is: $winner"
-            else -> "$j beats $c, winner is: $winner"
+            winner == null -> GameResult("Draw: $c vs $j", null)
+            else -> {
+                val isWin = winner == myAddress
+                val msg = if (winner == gameState.creatorPubkey) "$c beats $j" else "$j beats $c"
+                GameResult(msg, isWin)
+            }
         }
     }
 
@@ -633,7 +647,9 @@ class GameViewModel @Inject constructor(
                     joinedGameId = null,
                     gamePhase = null,
                     countdownNumber = 3,
-                    gameResultMessage = null
+                    gameResultMessage = null,
+                    isWinner = null,
+                    gameAmountPerPlayer = 0L
                 ).updateViewState()
             }
         }

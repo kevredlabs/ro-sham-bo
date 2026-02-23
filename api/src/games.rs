@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::error::ApiError;
-use crate::solana::SolanaAppClient;
+use crate::solana::{self, SolanaAppClient};
 
 /// Path parameter for game ID.
 #[derive(Deserialize)]
@@ -58,7 +58,7 @@ pub struct Game {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub joiner_pubkey: Option<String>,
     pub status: GameStatus,
-    pub created_at: i64,
+    pub created_at: String,
     /// Creator's choice: "rock", "paper", or "scissors".
     #[serde(skip_serializing_if = "Option::is_none")]
     pub creator_choice: Option<String>,
@@ -71,6 +71,15 @@ pub struct Game {
     /// True when the last round was a draw and choices were cleared for the next round.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub round_cleared_for_draw: Option<bool>,
+    /// Stake amount per player in lamports.
+    #[serde(default)]
+    pub amount_per_player: i64,
+    /// Game escrow PDA (base58).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub game_escrow_pubkey: Option<String>,
+    /// Vault PDA (base58).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub vault_pubkey: Option<String>,
 }
 
 #[derive(Clone, Copy, Serialize, Deserialize, Default, PartialEq, Eq)]
@@ -92,6 +101,8 @@ pub struct User {
 pub struct CreateGameRequest {
     pub creator_pubkey: String,
     pub game_id: Option<String>,
+    #[serde(default)]
+    pub amount_per_player: i64,
 }
 
 #[derive(Serialize)]
@@ -167,10 +178,20 @@ async fn create_game(
         .filter(|id| Uuid::parse_str(id).is_ok())
         .unwrap_or_else(|| Uuid::new_v4().to_string());
     let pin = generate_pin();
-    let created_at = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
-        .as_secs() as i64;
+    let created_at = chrono::Utc::now().format("%Y-%m-%d %H:%M:%S UTC").to_string();
+
+    let (game_escrow_pubkey, vault_pubkey) = {
+        let program_id = state.solana.as_ref()
+            .map(|s| s.program_id)
+            .unwrap_or_else(solana::program_id);
+        let creator_pk: solana_sdk::pubkey::Pubkey = creator_pubkey.parse()
+            .map_err(|_| ApiError::bad_request("invalid creator_pubkey (not a valid base58 pubkey)"))?;
+        let uuid = Uuid::parse_str(&game_id).unwrap();
+        let game_id_bytes: [u8; 16] = *uuid.as_bytes();
+        let escrow = solana::game_escrow_pda(&program_id, &creator_pk, &game_id_bytes);
+        let vault = solana::vault_pda(&program_id, &escrow);
+        (escrow.to_string(), vault.to_string())
+    };
 
     let game = Game {
         id: game_id.clone(),
@@ -183,6 +204,9 @@ async fn create_game(
         joiner_choice: None,
         winner_pubkey: None,
         round_cleared_for_draw: None,
+        amount_per_player: body.amount_per_player,
+        game_escrow_pubkey: Some(game_escrow_pubkey),
+        vault_pubkey: Some(vault_pubkey),
     };
 
     let users = state.db.collection::<User>("users");

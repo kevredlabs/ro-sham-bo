@@ -38,10 +38,10 @@ fun NewGameConfigScreen(
 ) {
     var amountSolText by remember { mutableStateOf("0.1") }
     val amountSol = amountSolText.toDoubleOrNull() ?: 0.0
-    val amountLamports = (amountSol * SolanaConfig.LAMPORTS_PER_SOL).toLong()
+    val amountPerPlayer = (amountSol * SolanaConfig.LAMPORTS_PER_SOL).toLong()
     val balanceLamports = (solBalance * SolanaConfig.LAMPORTS_PER_SOL).toLong()
-    val amountValid = amountLamports > 0
-    val withinBalance = amountLamports <= balanceLamports
+    val amountValid = amountPerPlayer > 0
+    val withinBalance = amountPerPlayer <= balanceLamports
     val canCreate = amountValid && withinBalance && !isLoading
 
     PixelScreen {
@@ -146,7 +146,7 @@ fun NewGameConfigScreen(
 
             PixelButton(
                 text = if (isLoading) "Creating..." else "Create game",
-                onClick = { onCreateGame(amountLamports) },
+                onClick = { onCreateGame(amountPerPlayer) },
                 enabled = canCreate,
                 modifier = Modifier.fillMaxWidth(),
                 bgColor = PixelCyan,

@@ -37,6 +37,8 @@ fun AppContent(
                     gamePhase = viewState.gamePhase,
                     countdownNumber = viewState.countdownNumber,
                     gameResultMessage = viewState.gameResultMessage,
+                    isWinner = viewState.isWinner,
+                    gameAmountPerPlayer = viewState.gameAmountPerPlayer,
                     error = viewState.error,
                     onScreenVisible = { viewModel.onCurrentGameScreenVisible(it) },
                     onSubmitChoice = { viewModel.submitChoice(it) },
@@ -52,7 +54,7 @@ fun AppContent(
                     solBalance = viewState.solBalance,
                     isLoading = viewState.isLoading,
                     error = viewState.error,
-                    onCreateGame = { amountLamports -> viewModel.startNewGame(intentSender, amountLamports) },
+                    onCreateGame = { amountPerPlayer -> viewModel.startNewGame(intentSender, amountPerPlayer) },
                     onBack = { viewModel.backFromNewGameConfig() }
                 )
                 showJoinGame -> JoinGameScreen(

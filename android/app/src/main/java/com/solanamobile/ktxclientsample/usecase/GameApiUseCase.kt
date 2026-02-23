@@ -30,10 +30,11 @@ class GameApiUseCase @Inject constructor() {
      * @param gameId Pre-generated UUID to use as the game ID (for on-chain-first flow)
      * @return Result with CreateGameResult or error message
      */
-    suspend fun createGame(creatorWallet: String, gameId: String? = null): Result<CreateGameResult> = withContext(Dispatchers.IO) {
+    suspend fun createGame(creatorWallet: String, gameId: String? = null, amountPerPlayer: Long = 0L): Result<CreateGameResult> = withContext(Dispatchers.IO) {
         val body = JSONObject().apply {
             put("creator_pubkey", creatorWallet)
             if (gameId != null) put("game_id", gameId)
+            put("amount_per_player", amountPerPlayer)
         }.toString()
         val request = Request.Builder()
             .url("$baseUrl/games/create")
@@ -82,7 +83,8 @@ class GameApiUseCase @Inject constructor() {
                         gameId = json.getString("_id"),
                         status = json.optString("status", "waiting"),
                         joinerPubkey = null,
-                        creatorPubkey = json.optString("creator_pubkey", null).takeIf { it.isNotEmpty() }
+                        creatorPubkey = json.optString("creator_pubkey", null).takeIf { it.isNotEmpty() },
+                        amountPerPlayer = json.optLong("amount_per_player", 0L)
                     )
                 )
             }
@@ -162,7 +164,8 @@ class GameApiUseCase @Inject constructor() {
                         joinerChoice = joinerChoice,
                         winnerPubkey = winnerPubkey,
                         creatorPubkey = json.optString("creator_pubkey", null).takeIf { it.isNotEmpty() },
-                        roundClearedForDraw = roundClearedForDraw
+                        roundClearedForDraw = roundClearedForDraw,
+                        amountPerPlayer = json.optLong("amount_per_player", 0L)
                     )
                 )
             }
@@ -214,7 +217,8 @@ class GameApiUseCase @Inject constructor() {
                         joinerChoice = joinerChoice,
                         winnerPubkey = winnerPubkey,
                         creatorPubkey = json.optString("creator_pubkey", null).takeIf { it.isNotEmpty() },
-                        roundClearedForDraw = roundClearedForDraw
+                        roundClearedForDraw = roundClearedForDraw,
+                        amountPerPlayer = json.optLong("amount_per_player", 0L)
                     )
                 )
             }
@@ -264,5 +268,6 @@ data class GameState(
     val joinerChoice: String? = null,
     val winnerPubkey: String? = null,
     val creatorPubkey: String? = null,
-    val roundClearedForDraw: Boolean = false
+    val roundClearedForDraw: Boolean = false,
+    val amountPerPlayer: Long = 0L
 )
