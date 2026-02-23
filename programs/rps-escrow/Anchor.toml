@@ -11,6 +11,9 @@ rps_escrow = "F4d4VwBaQrqf5hUZs74XoiVCAo76BpeRSqABxMMzG7kN"
 [programs.devnet]
 rps_escrow = "F4d4VwBaQrqf5hUZs74XoiVCAo76BpeRSqABxMMzG7kN"
 
+[programs.mainnet]
+rps_escrow = "F4d4VwBaQrqf5hUZs74XoiVCAo76BpeRSqABxMMzG7kN"
+
 [registry]
 url = "https://api.apr.dev"
 

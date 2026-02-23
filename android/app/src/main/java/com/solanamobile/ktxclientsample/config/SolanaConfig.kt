@@ -1,14 +1,16 @@
 package com.solanamobile.ktxclientsample.config
 
+import com.solanamobile.ktxclientsample.BuildConfig
 import com.solana.publickey.SolanaPublicKey
 
 /**
  * Central config for Solana RPC and rps_escrow program.
+ * RPC_URL is set per build flavor: develop = devnet, prod = mainnet (Helius).
  */
 object SolanaConfig {
 
-    // --- RPC (Helius mainnet) ---
-    const val RPC_URL: String = "https://mei-y0cp6y-fast-mainnet.helius-rpc.com"
+    // --- RPC (from build flavor: develop = devnet, prod = mainnet) ---
+    val RPC_URL: String = BuildConfig.SOLANA_RPC_URL
 
     const val LAMPORTS_PER_SOL: Long = 1_000_000_000
 

@@ -21,23 +21,20 @@ android {
         vectorDrawables {
             useSupportLibrary true
         }
+    }
 
-        Properties properties = new Properties()
-        def propertiesFile = project.rootProject.file('local.properties')
-        String heliusKey = "\"\""
-        if (propertiesFile.exists()) {
-            properties.load(propertiesFile.newDataInputStream())
-            if (properties.hasProperty("HELIUS_KEY")) {
-                heliusKey = "\"${properties.getProperty("HELIUS_KEY")}\""
-            }
+    flavorDimensions = ["env"]
+    productFlavors {
+        develop {
+            dimension = "env"
+            buildConfigField "String", "SOLANA_RPC_URL", "\"https://api.devnet.solana.com\""
+            buildConfigField "String", "API_BASE_URL", "\"https://api.develop.rps.kevred.com\""
         }
-        buildConfigField "String", "HELIUS_KEY", heliusKey
-        // API: default = develop backend; override in local.properties (e.g. API_BASE_URL=http://10.0.2.2:3000) for local
-        String apiBaseUrl = "\"https://api.develop.rps.kevred.com\""
-        if (propertiesFile.exists() && properties.hasProperty("API_BASE_URL")) {
-            apiBaseUrl = "\"${properties.getProperty("API_BASE_URL")}\""
+        prod {
+            dimension = "env"
+            buildConfigField "String", "SOLANA_RPC_URL", "\"https://mei-y0cp6y-fast-mainnet.helius-rpc.com\""
+            buildConfigField "String", "API_BASE_URL", "\"https://api.rps.kevred.com\""
         }
-        buildConfigField "String", "API_BASE_URL", apiBaseUrl
     }
 
     buildTypes {
@@ -57,6 +54,7 @@ android {
     }
 
     buildFeatures {
+        buildConfig true
         compose true
     }
 
