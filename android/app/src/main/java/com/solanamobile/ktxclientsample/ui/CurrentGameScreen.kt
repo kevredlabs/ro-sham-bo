@@ -3,11 +3,14 @@ package com.solanamobile.ktxclientsample.ui
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
@@ -18,10 +21,12 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.solanamobile.ktxclientsample.ui.theme.PixelCyan
-import com.solanamobile.ktxclientsample.ui.theme.PixelGreen
+import com.solanamobile.ktxclientsample.ui.theme.PixelDarkBlue
+import com.solanamobile.ktxclientsample.ui.theme.PixelLightBlue
 import com.solanamobile.ktxclientsample.ui.theme.PixelLightGray
 import com.solanamobile.ktxclientsample.ui.theme.PixelOrange
 import com.solanamobile.ktxclientsample.ui.theme.PixelRed
+import com.solanamobile.ktxclientsample.ui.theme.PixelTeal
 import com.solanamobile.ktxclientsample.ui.theme.PixelYellow
 
 @Composable
@@ -75,44 +80,77 @@ fun CurrentGameScreen(
                     }
                 }
                 "SELECTION" -> {
-                    Text(
-                        text = "CHOOSE YOUR MOVE",
-                        style = MaterialTheme.typography.h6,
-                        color = PixelCyan,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    if (error.isNotEmpty()) {
-                        Text(
-                            text = error,
-                            style = MaterialTheme.typography.body2,
-                            color = PixelRed,
-                            modifier = Modifier.padding(vertical = 8.dp)
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Column(
-                        modifier = Modifier.weight(1f),
-                        verticalArrangement = Arrangement.spacedBy(12.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f),
+                        contentAlignment = Alignment.Center
                     ) {
-                        PixelButton(
-                            text = "ROCK",
-                            onClick = { onSubmitChoice("Rock") },
-                            modifier = Modifier.fillMaxWidth(),
-                            bgColor = PixelOrange
-                        )
-                        PixelButton(
-                            text = "PAPER",
-                            onClick = { onSubmitChoice("Paper") },
-                            modifier = Modifier.fillMaxWidth(),
-                            bgColor = PixelCyan
-                        )
-                        PixelButton(
-                            text = "SCISSORS",
-                            onClick = { onSubmitChoice("Scissors") },
-                            modifier = Modifier.fillMaxWidth(),
-                            bgColor = PixelGreen
-                        )
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            val titleStyle = MaterialTheme.typography.h3.copy(
+                                fontSize = 24.sp,
+                                letterSpacing = 3.sp
+                            )
+                            PixelShadowText(
+                                text = "CHOOSE YOUR MOVE",
+                                color = PixelCyan,
+                                shadowColor = PixelTeal,
+                                style = titleStyle
+                            )
+
+                            if (error.isNotEmpty()) {
+                                Text(
+                                    text = error,
+                                    style = MaterialTheme.typography.body2,
+                                    color = PixelRed,
+                                    modifier = Modifier.padding(vertical = 8.dp)
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.height(32.dp))
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                PixelMoveCard(
+                                    label = "ROCK",
+                                    borderColor = PixelLightBlue,
+                                    shadowColor = PixelDarkBlue,
+                                    onClick = { onSubmitChoice("Rock") },
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .aspectRatio(0.85f)
+                                ) {
+                                    PixelRockIcon(modifier = Modifier.size(64.dp))
+                                }
+                                PixelMoveCard(
+                                    label = "PAPER",
+                                    borderColor = PixelCyan,
+                                    shadowColor = PixelTeal,
+                                    onClick = { onSubmitChoice("Paper") },
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .aspectRatio(0.85f)
+                                ) {
+                                    PixelPaperIcon(modifier = Modifier.size(64.dp))
+                                }
+                                PixelMoveCard(
+                                    label = "SCISSORS",
+                                    borderColor = PixelOrange,
+                                    shadowColor = PixelRed,
+                                    onClick = { onSubmitChoice("Scissors") },
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .aspectRatio(0.85f)
+                                ) {
+                                    PixelScissorsIcon(modifier = Modifier.size(64.dp))
+                                }
+                            }
+                        }
                     }
                 }
                 "WAITING_FOR_OTHER" -> {
