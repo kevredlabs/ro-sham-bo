@@ -539,6 +539,11 @@
       "code": 6009,
       "name": "UnauthorizedJoiner",
       "msg": "Unauthorized: the account is not the joiner of the game"
+    },
+    {
+      "code": 6010,
+      "name": "InvalidTreasury",
+      "msg": "Invalid treasury"
     }
   ],
   "types": [

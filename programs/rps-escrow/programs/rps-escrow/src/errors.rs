@@ -24,4 +24,6 @@ pub enum EscrowError {
     UnauthorizedCreator,
     #[msg("Unauthorized: the account is not the joiner of the game")]
     UnauthorizedJoiner,
+    #[msg("Invalid treasury")]
+    InvalidTreasury,
 }

@@ -1139,7 +1139,8 @@ describe("create game, deposit, join game and resolve with wrong treasury", () =
 
   it("Should fail to resolve with wrong treasury!", async () => {
 
-    const tx = await program.methods
+    try {
+    await program.methods
     .resolve(winner.publicKey)
     .accountsStrict({
       authority: authority.publicKey,
@@ -1152,10 +1153,10 @@ describe("create game, deposit, join game and resolve with wrong treasury", () =
     })
     .signers([authority])
     .rpc();
-
-    console.log("Your transaction signature", tx);
-    const gameEscrowPdaInfo = await provider.connection.getAccountInfo(gameEscrowPda);
-    assert.isNull(gameEscrowPdaInfo, "Game escrow PDA should be null");
-  })
-
+    expect.fail("Expected error");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      assert.ok(message.includes("InvalidTreasury"), `Expected "InvalidTreasury" in: ${message}`);
+    }
+  });
 });

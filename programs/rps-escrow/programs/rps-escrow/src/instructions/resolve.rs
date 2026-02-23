@@ -60,6 +60,11 @@ impl<'info> Resolve<'info> {
             EscrowError::InvalidWinner
         );
 
+        require!(
+            self.treasury.key() == crate::TREASURY_PUBKEY,
+            EscrowError::InvalidTreasury
+        );
+
 
         let payout = self.game_escrow.amount_per_player.checked_mul(2).ok_or(EscrowError::InvalidAmount)?;
         // 3% fee to treasury
@@ -88,7 +93,7 @@ impl<'info> Resolve<'info> {
         );
         transfer(cpi_ctx_treasury, treasury_fee)?; // send 3% fee to the treasury
 
-        let cpi_ctx = CpiContext::new_with_signer(
+        let cpi_ctx_winner = CpiContext::new_with_signer(
             self.system_program.to_account_info(),
             Transfer {
                 from: self.vault.to_account_info(),
@@ -96,7 +101,7 @@ impl<'info> Resolve<'info> {
             },
             seeds);
 
-        transfer(cpi_ctx, winner_amount)?; // send (payout - 3% fee) to the winner
+        transfer(cpi_ctx_winner, winner_amount)?; // send (payout - 3% fee) to the winner
 
 
         Ok(()) // close the escrow account and give back rent to the creator
