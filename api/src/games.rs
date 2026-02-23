@@ -184,6 +184,9 @@ async fn reserve_pin(db: &Database) -> Result<String, ApiError> {
     ))
 }
 
+/// Minimum bet per player in lamports (0.001 SOL). Must match program MIN_BET_LAMPORTS.
+const MIN_BET_LAMPORTS: i64 = 1_000_000;
+
 const VALID_CHOICES: [&str; 3] = ["rock", "paper", "scissors"];
 
 /// Shortens a pubkey for log display (first 6 chars + "..." + last 6 chars).
@@ -232,6 +235,10 @@ async fn create_game(
     if creator_pubkey.is_empty() {
         log::warn!("Create game rejected: missing creator_pubkey");
         return Err(ApiError::bad_request("creator_pubkey is required"));
+    }
+    if body.amount_per_player < MIN_BET_LAMPORTS {
+        log::warn!("Create game rejected: amount {} below minimum {}", body.amount_per_player, MIN_BET_LAMPORTS);
+        return Err(ApiError::bad_request("amount_per_player must be at least 0.001 SOL (1_000_000 lamports)"));
     }
 
     let game_id = body.game_id.clone()

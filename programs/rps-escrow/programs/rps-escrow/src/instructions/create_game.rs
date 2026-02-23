@@ -7,6 +7,9 @@ use anchor_lang::system_program::{transfer, Transfer};
 use crate::errors::EscrowError;
 use crate::state::GameEscrow;
 
+/// Minimum bet per player: 0.001 SOL (also above rent-exempt for vault).
+const MIN_BET_LAMPORTS: u64 = 1_000_000;
+
 #[derive(Accounts)]
 #[instruction(game_id: [u8; 16], amount: u64)]
 
@@ -41,9 +44,9 @@ impl<'info> CreateGame<'info> {
         amount: u64,
         bumps: &CreateGameBumps,
     ) -> Result<()> {
-        // check if the amount is greater than the rent exempt amount for the vault creation
+        // amount must be at least MIN_BET_LAMPORTS (0.001 SOL) and above rent-exempt for the vault
         let rent_exempt: u64 = Rent::get()?.minimum_balance(self.vault.to_account_info().data_len());
-
+        require!(amount >= MIN_BET_LAMPORTS, EscrowError::InvalidAmount);
         require!(amount > rent_exempt, EscrowError::InvalidAmount);
 
         self.game_escrow.set_inner(GameEscrow {

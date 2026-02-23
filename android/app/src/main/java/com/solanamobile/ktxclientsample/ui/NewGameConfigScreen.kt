@@ -36,11 +36,12 @@ fun NewGameConfigScreen(
     onCreateGame: (Long) -> Unit,
     onBack: () -> Unit
 ) {
+    val minBetLamports = 1_000_000L // 0.001 SOL
     var amountSolText by remember { mutableStateOf("0.1") }
     val amountSol = amountSolText.toDoubleOrNull() ?: 0.0
     val amountPerPlayer = (amountSol * SolanaConfig.LAMPORTS_PER_SOL).toLong()
     val balanceLamports = (solBalance * SolanaConfig.LAMPORTS_PER_SOL).toLong()
-    val amountValid = amountPerPlayer > 0
+    val amountValid = amountPerPlayer >= minBetLamports
     val withinBalance = amountPerPlayer <= balanceLamports
     val canCreate = amountValid && withinBalance && !isLoading
 
@@ -121,7 +122,7 @@ fun NewGameConfigScreen(
             if (!amountValid && amountSolText.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(6.dp))
                 Text(
-                    text = "Amount must be greater than 0",
+                    text = "Minimum bet is 0.001 SOL",
                     style = MaterialTheme.typography.caption,
                     color = MaterialTheme.colors.error
                 )
