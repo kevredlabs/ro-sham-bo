@@ -9,7 +9,12 @@ use axum::{
     routing::{get, post},
     Json, Router,
 };
-use mongodb::{bson::doc, Database};
+use mongodb::{
+    bson::doc,
+    options::IndexOptions,
+    Database,
+    IndexModel,
+};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -118,10 +123,65 @@ pub struct AppState {
     pub solana: Option<SolanaAppClient>,
 }
 
+/// Max attempts when reserving a PIN to avoid collision with an existing waiting game.
+const PIN_RESERVE_MAX_ATTEMPTS: u32 = 25;
+
 /// Generates a 4-digit numeric PIN (0000-9999).
 fn generate_pin() -> String {
     use rand::Rng;
     format!("{:04}", rand::thread_rng().gen_range(0..10000))
+}
+
+/// Ensures the partial unique index on `pin` for waiting games exists.
+/// Uniqueness applies only to documents with status "waiting" and no joiner, so the same PIN
+/// can be reused after a game is finished or cancelled.
+pub async fn ensure_games_pin_index(db: &Database) -> Result<(), mongodb::error::Error> {
+    let options = IndexOptions::builder()
+        .unique(true)
+        .partial_filter_expression(doc! {
+            "status": "waiting",
+            "joiner_pubkey": null,
+        })
+        .build();
+    let model = IndexModel::builder()
+        .keys(doc! { "pin": 1 })
+        .options(options)
+        .build();
+    db.collection::<mongodb::bson::Document>("games")
+        .create_index(model, None)
+        .await?;
+    log::info!("Games PIN index (unique for waiting games) ensured");
+    Ok(())
+}
+
+/// Returns a PIN that is not used by any current waiting game (retries on collision).
+async fn reserve_pin(db: &Database) -> Result<String, ApiError> {
+    let games = db.collection::<Game>("games");
+    for _ in 0..PIN_RESERVE_MAX_ATTEMPTS {
+        let pin = generate_pin();
+        let existing = games
+            .find_one(
+                doc! {
+                    "pin": &pin,
+                    "status": "waiting",
+                    "joiner_pubkey": null,
+                },
+                None,
+            )
+            .await
+            .map_err(|e| {
+                log::error!("Failed to check PIN availability: {}", e);
+                ApiError::internal(e.to_string())
+            })?;
+        if existing.is_none() {
+            return Ok(pin);
+        }
+        log::debug!("PIN collision, retrying with new PIN");
+    }
+    log::error!("Failed to reserve a unique PIN after {} attempts", PIN_RESERVE_MAX_ATTEMPTS);
+    Err(ApiError::internal(
+        "Could not generate a unique PIN; please try again",
+    ))
 }
 
 const VALID_CHOICES: [&str; 3] = ["rock", "paper", "scissors"];
@@ -177,7 +237,7 @@ async fn create_game(
     let game_id = body.game_id.clone()
         .filter(|id| Uuid::parse_str(id).is_ok())
         .unwrap_or_else(|| Uuid::new_v4().to_string());
-    let pin = generate_pin();
+    let pin = reserve_pin(&state.db).await?;
     let created_at = chrono::Utc::now().format("%Y-%m-%d %H:%M:%S UTC").to_string();
 
     let (game_escrow_pubkey, vault_pubkey) = {

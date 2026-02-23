@@ -15,6 +15,9 @@ async fn main() {
         .await
         .expect("MongoDB connection failed");
     let db = client.database(&config.db_name);
+    seeker_rps_api::games::ensure_games_pin_index(&db)
+        .await
+        .expect("Failed to ensure games PIN index");
     let solana = Some(SolanaAppClient::from_config(&config));
     if solana.as_ref().map(|s| s.can_resolve()).unwrap_or(false) {
         log::info!("Solana devnet: resolve enabled (program {})", config.rps_escrow_program_id);
