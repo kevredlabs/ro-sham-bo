@@ -434,7 +434,10 @@ class GameViewModel @Inject constructor(
                                 it.copy(
                                     isLoading = false,
                                     showJoinGameScreen = false,
+                                    gamePin = null,
                                     joinedGameId = gameId,
+                                    gamePhase = "COUNTDOWN",
+                                    countdownNumber = 3,
                                     gameAmountPerPlayer = gameState.amountPerPlayer,
                                     error = ""
                                 )
@@ -488,9 +491,10 @@ class GameViewModel @Inject constructor(
     /** Called when CurrentGameScreen is shown. Starts initial 3-2-1 countdown then SELECTION. */
     fun onCurrentGameScreenVisible(gameId: String) {
         val current = _state.value
-        if (current.gamePhase != null) return
-        _state.update {
-            it.copy(gamePhase = "COUNTDOWN", countdownNumber = 3)
+        // Skip if we're already past countdown (e.g. SELECTION, RESULT). When joining we already set COUNTDOWN so run the loop.
+        if (current.gamePhase != null && current.gamePhase != "COUNTDOWN") return
+        if (current.gamePhase != "COUNTDOWN") {
+            _state.update { it.copy(gamePhase = "COUNTDOWN", countdownNumber = 3) }
         }
         viewModelScope.launch {
             for (n in listOf(3, 2, 1)) {
