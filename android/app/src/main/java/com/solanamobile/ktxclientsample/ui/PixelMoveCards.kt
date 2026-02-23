@@ -50,9 +50,9 @@ private fun DrawScope.drawPixel(col: Int, row: Int, color: Color, pixelSize: Flo
 fun PixelRockIcon(modifier: Modifier = Modifier) {
     Canvas(modifier = modifier) {
         val px = size.width / 12f
-        val main = PixelLightBlue
-        val shadow = PixelDarkBlue
-        val highlight = PixelCyan
+        val main = Color(0xFF94b0c2)
+        val shadow = Color(0xFF566c86)
+        val highlight = Color(0xFFc0d0da)
 
         // Row 2
         for (c in 4..7) drawPixel(c, 2, main, px)

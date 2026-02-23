@@ -90,8 +90,8 @@ fun CurrentGameScreen(
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
                             val titleStyle = MaterialTheme.typography.h3.copy(
-                                fontSize = 24.sp,
-                                letterSpacing = 3.sp
+                                fontSize = 18.sp,
+                                letterSpacing = 2.sp
                             )
                             PixelShadowText(
                                 text = "CHOOSE YOUR MOVE",
