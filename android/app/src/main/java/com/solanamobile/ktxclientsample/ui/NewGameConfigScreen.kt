@@ -37,7 +37,7 @@ fun NewGameConfigScreen(
     onBack: () -> Unit
 ) {
     val minBetLamports = 1_000_000L // 0.001 SOL
-    var amountSolText by remember { mutableStateOf("0.1") }
+    var amountSolText by remember { mutableStateOf("0.001") }
     val amountSol = amountSolText.toDoubleOrNull() ?: 0.0
     val amountPerPlayer = (amountSol * SolanaConfig.LAMPORTS_PER_SOL).toLong()
     val balanceLamports = (solBalance * SolanaConfig.LAMPORTS_PER_SOL).toLong()

@@ -267,7 +267,7 @@ fun CurrentGameScreen(
                                 )
                             } else {
                                 val resultStyle = MaterialTheme.typography.body1.copy(
-                                    fontSize = 18.sp,
+                                    fontSize = 15.sp,
                                     letterSpacing = 1.sp
                                 )
                                 val resultMsg = (gameResultMessage ?: "").uppercase()
@@ -296,9 +296,10 @@ fun CurrentGameScreen(
                                         Spacer(modifier = Modifier.height(24.dp))
                                         val label = if (isWinner) "PROFIT" else "LOSS"
                                         val sign = if (isWinner) "+" else "-"
-                                        val potFormatted = "%.3f".format(potSol)
+                                        val amountDisplay = if (isWinner) potSol else betSol
+                                        val amountFormatted = "%.3f".format(amountDisplay)
                                         Text(
-                                            text = "$label: $sign $potFormatted SOL",
+                                            text = "$label: $sign $amountFormatted SOL",
                                             style = resultStyle,
                                             color = if (isWinner) PixelCyan else PixelOrange,
                                             modifier = Modifier.fillMaxWidth(),
