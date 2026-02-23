@@ -1,4 +1,4 @@
-//! Interaction with the rps-escrow program on Solana devnet.
+//! Interaction with the rps-escrow program on Solana mainnet.
 //!
 //! Follows [Anchor Rust client](https://www.anchor-lang.com/docs/clients/rust): IDL-generated
 //! client to build instructions. Send via RpcClient so the handler stays Send (keypair is !Send).
@@ -62,7 +62,7 @@ pub struct ResolveResult {
     pub signature: String,
 }
 
-/// Calls the rps-escrow **resolve** instruction on devnet using the IDL-generated client.
+/// Calls the rps-escrow **resolve** instruction on mainnet using the IDL-generated client.
 /// Builds the instruction with the client (Anchor doc pattern); sends with RpcClient so the handler stays Send.
 /// `game_id` must be the 16-byte UUID (no hyphens). `creator_pubkey` and `winner_pubkey` are base58.
 pub fn resolve_game(

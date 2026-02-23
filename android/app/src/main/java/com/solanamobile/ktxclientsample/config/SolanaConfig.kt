@@ -7,8 +7,8 @@ import com.solana.publickey.SolanaPublicKey
  */
 object SolanaConfig {
 
-    // --- RPC ---
-    const val RPC_URL: String = "https://api.devnet.solana.com"
+    // --- RPC (Helius mainnet) ---
+    const val RPC_URL: String = "https://mei-y0cp6y-fast-mainnet.helius-rpc.com"
 
     const val LAMPORTS_PER_SOL: Long = 1_000_000_000
 

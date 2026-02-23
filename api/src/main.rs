@@ -20,9 +20,9 @@ async fn main() {
         .expect("Failed to ensure games PIN index");
     let solana = Some(SolanaAppClient::from_config(&config));
     if solana.as_ref().map(|s| s.can_resolve()).unwrap_or(false) {
-        log::info!("Solana devnet: resolve enabled (program {})", config.rps_escrow_program_id);
+        log::info!("Solana mainnet: resolve enabled (program {})", config.rps_escrow_program_id);
     } else {
-        log::info!("Solana devnet: resolve disabled (set RESOLVE_AUTHORITY_KEYPAIR_PATH to enable)");
+        log::info!("Solana mainnet: resolve disabled (set RESOLVE_AUTHORITY_KEYPAIR_PATH to enable)");
     }
     let state = AppState { db, solana };
     log::info!("MongoDB connected");

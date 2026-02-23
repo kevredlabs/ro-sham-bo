@@ -16,7 +16,7 @@ mongodb = "2.8"
 log = "0.4"
 env_logger = "0.11"
 
-# Solana devnet program (rps-escrow). Client generated from IDL via declare_program!
+# Solana mainnet program (rps-escrow). Client generated from IDL via declare_program!
 anchor-client = { version = "0.32.1", features = ["async"] }
 anchor-lang = "0.32.1"
 anchor-attribute-program = "0.32.1"
