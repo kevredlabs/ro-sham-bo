@@ -59,6 +59,37 @@ class GameApiUseCase @Inject constructor() {
     }
 
     /**
+     * Looks up a waiting game by PIN without modifying it (read-only).
+     * Returns game info including gameId and creatorPubkey.
+     */
+    suspend fun lookupGameByPin(pin: String): Result<GameState> = withContext(Dispatchers.IO) {
+        val request = Request.Builder()
+            .url("$baseUrl/games/lookup/$pin")
+            .get()
+            .build()
+        runCatching {
+            client.newCall(request).execute().use { response ->
+                val responseBody = response.body?.string() ?: ""
+                if (!response.isSuccessful) {
+                    val message = try {
+                        JSONObject(responseBody).optString("error", responseBody).ifEmpty { "HTTP ${response.code}" }
+                    } catch (_: Exception) { "HTTP ${response.code}: $responseBody" }
+                    return@runCatching Result.failure<GameState>(Exception(message))
+                }
+                val json = JSONObject(responseBody)
+                Result.success(
+                    GameState(
+                        gameId = json.getString("_id"),
+                        status = json.optString("status", "waiting"),
+                        joinerPubkey = null,
+                        creatorPubkey = json.optString("creator_pubkey", null).takeIf { it.isNotEmpty() }
+                    )
+                )
+            }
+        }.getOrElse { e -> Result.failure(e) }
+    }
+
+    /**
      * Joins an existing game by 4-digit PIN. Returns game id on success.
      * @param pin 4-digit PIN shared by the game creator
      * @param joinerWallet Solana public key (base58) of the player joining

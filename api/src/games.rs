@@ -474,6 +474,34 @@ async fn cancel_game(
     }
 }
 
+/// Look up a waiting game by PIN without modifying it (read-only).
+async fn lookup_game_by_pin(
+    State(state): State<AppState>,
+    Path(pin): Path<String>,
+) -> Result<Json<Game>, ApiError> {
+    let pin = pin.trim();
+    if pin.len() != 4 || !pin.chars().all(|c| c.is_ascii_digit()) {
+        return Err(ApiError::bad_request("pin must be 4 digits"));
+    }
+    let games = state.db.collection::<Game>("games");
+    let filter = doc! {
+        "pin": pin,
+        "joiner_pubkey": null,
+        "status": "waiting"
+    };
+    let game = games
+        .find_one(filter, None)
+        .await
+        .map_err(|e| {
+            log::error!("Failed to lookup game by pin: {}", e);
+            ApiError::internal(e.to_string())
+        })?;
+    match game {
+        Some(g) => Ok(Json(g)),
+        None => Err(ApiError::not_found("No waiting game found for this PIN")),
+    }
+}
+
 async fn join_game(
     State(state): State<AppState>,
     Json(body): Json<JoinGameRequest>,
@@ -545,6 +573,7 @@ pub fn games_routes(state: AppState) -> Router {
     Router::new()
         .route("/games/create", post(create_game))
         .route("/games/join", post(join_game))
+        .route("/games/lookup/:pin", get(lookup_game_by_pin))
         .route("/games/:game_id", get(get_game))
         .route("/games/:game_id/choice", post(submit_choice))
         .route("/games/:game_id/cancel", post(cancel_game))

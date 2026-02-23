@@ -336,8 +336,8 @@ class GameViewModel @Inject constructor(
     }
 
     /**
-     * Joins a game with the given 4-digit PIN: API join, then on-chain join_game tx.
-     * Only navigates to CurrentGameScreen when the transaction succeeds.
+     * Joins a game with the given 4-digit PIN: 1) lookup game by PIN (read-only),
+     * 2) build & sign on-chain join_game tx, 3) on tx success call API to persist joiner in DB.
      */
     fun joinGame(sender: ActivityResultSender, pin: String) {
         val address = _state.value.userAddress
@@ -352,32 +352,19 @@ class GameViewModel @Inject constructor(
             return
         }
         viewModelScope.launch {
-            Log.d(TAG, "joinGame: joining via API pin=**** joiner=$address")
             _state.update { it.copy(isLoading = true, error = "") }
-            val apiResult = gameApiUseCase.joinGame(trimmedPin, address)
-            apiResult.onFailure { e ->
-                Log.e(TAG, "joinGame: API join failed", e)
+
+            Log.d(TAG, "joinGame: looking up game by PIN")
+            val lookupResult = gameApiUseCase.lookupGameByPin(trimmedPin)
+            lookupResult.onFailure { e ->
+                Log.e(TAG, "joinGame: lookup failed", e)
                 _state.update {
-                    it.copy(
-                        isLoading = false,
-                        error = e.message ?: "Failed to join game"
-                    )
+                    it.copy(isLoading = false, error = e.message ?: "No game found for this PIN")
                 }
                 return@launch
             }
-            val result = apiResult.getOrNull() ?: return@launch
-            val gameId = result.gameId
-            Log.d(TAG, "joinGame: API ok gameId=$gameId")
-            Log.d(TAG, "joinGame: fetching game for creator_pubkey")
-            val getGameResult = gameApiUseCase.getGame(gameId)
-            getGameResult.onFailure { e ->
-                Log.e(TAG, "joinGame: getGame failed", e)
-                _state.update {
-                    it.copy(isLoading = false, error = e.message ?: "Failed to load game")
-                }
-                return@launch
-            }
-            val gameState = getGameResult.getOrNull() ?: return@launch
+            val gameState = lookupResult.getOrNull() ?: return@launch
+            val gameId = gameState.gameId
             val creatorPubkey = gameState.creatorPubkey
             if (creatorPubkey.isNullOrEmpty()) {
                 Log.e(TAG, "joinGame: missing creator_pubkey in game")
@@ -386,31 +373,26 @@ class GameViewModel @Inject constructor(
                 }
                 return@launch
             }
-            Log.d(TAG, "joinGame: creator=$creatorPubkey")
+            Log.d(TAG, "joinGame: found gameId=$gameId creator=$creatorPubkey")
+
             val gameIdBytes = escrowUseCase.gameIdToBytes(gameId)
             if (gameIdBytes == null) {
-                Log.e(TAG, "joinGame: invalid game_id from API")
-                _state.update {
-                    it.copy(isLoading = false, error = "Invalid game id from API")
-                }
+                Log.e(TAG, "joinGame: invalid game_id")
+                _state.update { it.copy(isLoading = false, error = "Invalid game id") }
                 return@launch
             }
             val joiner = SolanaPublicKey.from(address)
             val creator = SolanaPublicKey.from(creatorPubkey)
             val joinGameIx = escrowUseCase.buildJoinGameInstruction(joiner, creator, gameIdBytes)
-            Log.d(TAG, "joinGame: joinGameIx=$joinGameIx")
             if (joinGameIx == null) {
                 Log.e(TAG, "joinGame: buildJoinGameInstruction returned null")
-                _state.update {
-                    it.copy(isLoading = false, error = "Failed to build join_game instruction")
-                }
+                _state.update { it.copy(isLoading = false, error = "Failed to build join_game instruction") }
                 return@launch
             }
             Log.d(TAG, "joinGame: instruction built, opening wallet session")
             try {
                 val txResult = connect(sender) { authResult ->
                     withContext(Dispatchers.IO) {
-                        Log.d(TAG, "joinGame: fetching latest blockhash before building tx")
                         val blockHash = solanaRpcUseCase.getLatestBlockHash()
                         Log.d(TAG, "joinGame: blockhash=$blockHash, building transaction")
                         val message = Message.Builder()
@@ -418,7 +400,7 @@ class GameViewModel @Inject constructor(
                             .setRecentBlockhash(blockHash)
                             .build()
                         val unsignedTx = Transaction(message)
-                        Log.d(TAG, "joinGame: sending transaction to wallet (signAndSendTransactions)")
+                        Log.d(TAG, "joinGame: sending transaction to wallet")
                         signAndSendTransactions(arrayOf(unsignedTx.serialize()))
                     }
                 }
@@ -428,6 +410,15 @@ class GameViewModel @Inject constructor(
                         val txSignatureBytes = txResult.successPayload?.signatures?.first()
                         txSignatureBytes?.let {
                             Log.i(TAG, "joinGame: tx success signature=${Base58.encode(it)}")
+                            val apiResult = gameApiUseCase.joinGame(trimmedPin, address)
+                            apiResult.onFailure { e ->
+                                Log.e(TAG, "joinGame: API join failed (on-chain already done)", e)
+                                _state.update {
+                                    it.copy(isLoading = false, error = "On-chain OK but API failed: ${e.message}")
+                                }
+                                return@launch
+                            }
+                            Log.d(TAG, "joinGame: API join ok")
                             _state.update {
                                 it.copy(
                                     isLoading = false,
