@@ -27,3 +27,13 @@ environments:
       creator: ""
       joiner: ""
 
+  mainnet:
+      network_id: mainnet
+      rpc_api_url: https://api.mainnet-beta.solana.com
+      payer_keypair_json: ~/.config/solana/id.json
+      authority_keypair_json: ~/.config/solana/id.json
+      game_escrow_address: ""
+      winner: ""
+      vault_address: ""
+      creator: ""
+      joiner: ""

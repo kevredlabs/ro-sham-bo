@@ -1,4 +1,4 @@
-# Devnet: manually resolve a stuck game (played but not resolved)
+# Mainnet: manually resolve a stuck game (played but not resolved)
 
 signer "resolve_authority" "svm::secret_key" {
     description = "Authority that can call resolve (must match RESOLVE_AUTHORITY in program)"
