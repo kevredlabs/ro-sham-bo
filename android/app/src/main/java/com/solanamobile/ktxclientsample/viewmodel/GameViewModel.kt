@@ -678,7 +678,7 @@ class GameViewModel @Inject constructor(
                         }
                         val bothChosen = gameState.creatorChoice != null && gameState.joinerChoice != null
                         if (bothChosen) {
-                            if (gameState.winnerPubkey != null && gameState.status == "finished") {
+                            if (gameState.winnerPubkey != null && gameState.status in listOf("finished", "resolving", "resolve_failed")) {
                                 val result = buildGameResult(gameState)
                                 _state.update {
                                     it.copy(

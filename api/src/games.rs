@@ -14,6 +14,7 @@ use crate::auth::AuthUser;
 use mongodb::{
     bson::doc,
     options::IndexOptions,
+    Collection,
     Database,
     IndexModel,
 };
@@ -83,6 +84,12 @@ pub struct Game {
     /// Vault PDA (base58).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub vault_pubkey: Option<String>,
+    /// On-chain resolve transaction signature (set on success).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub resolve_tx: Option<String>,
+    /// Error message when on-chain resolve failed (status = resolve_failed).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub resolve_error: Option<String>,
 }
 
 #[derive(Clone, Copy, Serialize, Deserialize, Default, PartialEq, Eq)]
@@ -91,7 +98,11 @@ pub enum GameStatus {
     #[default]
     Waiting,
     Active,
+    /// Winner computed, on-chain resolve in progress.
+    Resolving,
     Finished,
+    /// On-chain resolve failed; needs manual retry.
+    ResolveFailed,
     Cancelled,
 }
 
@@ -269,6 +280,8 @@ async fn create_game(
         amount_per_player: body.amount_per_player,
         game_escrow_pubkey: Some(game_escrow_pubkey),
         vault_pubkey: Some(vault_pubkey),
+        resolve_tx: None,
+        resolve_error: None,
     };
 
     let users = state.db.collection::<User>("users");
@@ -421,26 +434,6 @@ async fn submit_choice(
         .map(|(_, _, wp)| wp);
 
         if let Some(ref winner) = winner_pubkey {
-            // Clear winner: set finished and resolve on-chain once.
-            games
-                .update_one(
-                    doc! { "_id": &path.game_id },
-                    doc! {
-                        "$set": {
-                            "winner_pubkey": winner.clone(),
-                            "status": "finished"
-                        }
-                    },
-                    None,
-                )
-                .await
-                .map_err(|e| {
-                    log::error!("Failed to set winner: {}", e);
-                    ApiError::internal(e.to_string())
-                })?;
-            game.winner_pubkey = Some(winner.clone());
-            game.status = GameStatus::Finished;
-
             let winner_short = short_pk(winner);
             log::info!(
                 "Round complete game_id={} creator={} choice={} joiner={} choice={} winner={}",
@@ -452,31 +445,40 @@ async fn submit_choice(
                 winner_short
             );
 
-            if let Some(ref solana) = state.solana {
-                if solana.can_resolve() {
-                    let game_id_bytes = uuid::Uuid::parse_str(&path.game_id)
-                        .ok()
-                        .map(|u| *u.as_bytes());
-                    if let Some(gid) = game_id_bytes {
-                        match solana.resolve(gid, &game.creator_pubkey, winner) {
-                            Ok(res) => {
-                                log::info!(
-                                    "Game resolved on-chain game_id={} winner={} sig={}",
-                                    path.game_id,
-                                    winner,
-                                    res.signature
-                                );
-                            }
-                            Err(e) => {
-                                log::error!(
-                                    "On-chain resolve failed game_id={} winner={}: {}",
-                                    path.game_id,
-                                    winner,
-                                    e
-                                );
-                            }
+            // Step 1: mark as resolving (winner known, waiting for on-chain confirmation)
+            games
+                .update_one(
+                    doc! { "_id": &path.game_id },
+                    doc! {
+                        "$set": {
+                            "winner_pubkey": winner.clone(),
+                            "status": "resolving",
+                            "resolve_error": null,
+                            "resolve_tx": null
                         }
-                    }
+                    },
+                    None,
+                )
+                .await
+                .map_err(|e| {
+                    log::error!("Failed to set winner/resolving: {}", e);
+                    ApiError::internal(e.to_string())
+                })?;
+            game.winner_pubkey = Some(winner.clone());
+            game.status = GameStatus::Resolving;
+
+            // Step 2: attempt on-chain resolve
+            let resolve_result = try_resolve_on_chain(
+                &state, &games, &path.game_id, &game.creator_pubkey, winner,
+            ).await;
+            match resolve_result {
+                Ok(sig) => {
+                    game.status = GameStatus::Finished;
+                    game.resolve_tx = Some(sig);
+                }
+                Err(err_msg) => {
+                    game.status = GameStatus::ResolveFailed;
+                    game.resolve_error = Some(err_msg);
                 }
             }
         } else {
@@ -644,6 +646,91 @@ async fn join_game(
         None => {
             log::warn!("Join game failed: no waiting game for pin");
             Err(ApiError::not_found("No Game Available for this PIN"))
+        }
+    }
+}
+
+/// Attempts on-chain resolve. On success updates DB to `finished` + stores tx sig.
+/// On failure updates DB to `resolve_failed` + stores error.
+/// Returns Ok(signature) or Err(error_message).
+async fn try_resolve_on_chain(
+    state: &AppState,
+    games: &Collection<Game>,
+    game_id: &str,
+    creator_pubkey: &str,
+    winner_pubkey: &str,
+) -> Result<String, String> {
+    let solana = match &state.solana {
+        Some(s) if s.can_resolve() => s,
+        _ => {
+            let msg = "Solana resolve not configured".to_string();
+            log::error!("try_resolve_on_chain: {}", msg);
+            games
+                .update_one(
+                    doc! { "_id": game_id },
+                    doc! { "$set": { "status": "resolve_failed", "resolve_error": &msg } },
+                    None,
+                )
+                .await
+                .ok();
+            return Err(msg);
+        }
+    };
+
+    let game_id_bytes = match uuid::Uuid::parse_str(game_id) {
+        Ok(u) => *u.as_bytes(),
+        Err(e) => {
+            let msg = format!("invalid game_id UUID: {}", e);
+            log::error!("try_resolve_on_chain: {}", msg);
+            games
+                .update_one(
+                    doc! { "_id": game_id },
+                    doc! { "$set": { "status": "resolve_failed", "resolve_error": &msg } },
+                    None,
+                )
+                .await
+                .ok();
+            return Err(msg);
+        }
+    };
+
+    match solana.resolve(game_id_bytes, creator_pubkey, winner_pubkey) {
+        Ok(res) => {
+            log::info!(
+                "Game resolved on-chain game_id={} winner={} sig={}",
+                game_id, winner_pubkey, res.signature
+            );
+            games
+                .update_one(
+                    doc! { "_id": game_id },
+                    doc! { "$set": {
+                        "status": "finished",
+                        "resolve_tx": &res.signature,
+                        "resolve_error": null
+                    }},
+                    None,
+                )
+                .await
+                .map_err(|e| {
+                    log::error!("Failed to update game to finished: {}", e);
+                    e.to_string()
+                })?;
+            Ok(res.signature)
+        }
+        Err(e) => {
+            log::error!(
+                "On-chain resolve failed game_id={} winner={}: {}",
+                game_id, winner_pubkey, e
+            );
+            games
+                .update_one(
+                    doc! { "_id": game_id },
+                    doc! { "$set": { "status": "resolve_failed", "resolve_error": &e } },
+                    None,
+                )
+                .await
+                .ok();
+            Err(e)
         }
     }
 }
