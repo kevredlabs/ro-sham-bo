@@ -17,6 +17,7 @@ import com.solanamobile.ktxclientsample.usecase.Connected
 import com.solanamobile.ktxclientsample.usecase.GameApiUseCase
 import com.solanamobile.ktxclientsample.usecase.NotConnected
 import com.solanamobile.ktxclientsample.usecase.PersistanceUseCase
+import com.solanamobile.ktxclientsample.usecase.SiwsProof
 import com.solanamobile.ktxclientsample.usecase.EscrowUseCase
 import com.solanamobile.ktxclientsample.usecase.SolanaRpcUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -28,6 +29,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.bitcoinj.base.Base58
+import java.nio.charset.StandardCharsets
 import javax.inject.Inject
 
 data class GameViewState(
@@ -100,11 +102,66 @@ class GameViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Sign in with Solana (SIWS): connect to wallet and verify ownership in one step.
+     * Uses walletAdapter.signIn() as per [Solana Mobile docs](https://docs.solanamobile.com/get-started/kotlin/quickstart#sign-in-with-solana-siws).
+     * On success, persists connection and SIWS proof for API auth.
+     */
     fun signIn(sender: ActivityResultSender) {
         viewModelScope.launch {
-            connect(sender) {}
-            // Note: should check the signature here of the signInResult to verify it matches the
-            // account and expected signed message.
+            val conn = persistanceUseCase.getWalletConnection()
+            if (conn is Connected) {
+                // Already connected; no need to sign in again.
+                return@launch
+            }
+            _state.update { it.copy(isLoading = true, error = "") }
+            val result = withContext(Dispatchers.Main) {
+                walletAdapter.signIn(
+                    sender,
+                    SignInWithSolana.Payload("solana.com", "Sign in to Seeker RPS")
+                )
+            }
+            when (result) {
+                is TransactionResult.Success -> {
+                    val currentConn = Connected(
+                        SolanaPublicKey(result.authResult.accounts.first().publicKey),
+                        result.authResult.accounts.first().accountLabel ?: "",
+                        result.authResult.authToken,
+                        result.authResult.walletUriBase
+                    )
+                    persistanceUseCase.persistConnection(
+                        currentConn.publicKey,
+                        currentConn.accountLabel,
+                        currentConn.authToken,
+                        currentConn.walletUriBase
+                    )
+                    result.authResult.signInResult?.let { sr ->
+                        val message = String(sr.signedMessage, StandardCharsets.UTF_8)
+                        val signature = Base58.encode(sr.signature)
+                        persistanceUseCase.persistSiwsProof(message, signature)
+                        Log.d(TAG, "signIn: SIWS proof persisted")
+                    }
+                    _state.update {
+                        it.copy(
+                            isLoading = false,
+                            userAddress = currentConn.publicKey.base58(),
+                            userLabel = currentConn.accountLabel,
+                            solBalance = solanaRpcUseCase.getBalance(currentConn.publicKey),
+                            error = ""
+                        )
+                    }
+                }
+                is TransactionResult.NoWalletFound -> {
+                    _state.update {
+                        it.copy(isLoading = false, walletFound = false, error = result.message)
+                    }
+                }
+                is TransactionResult.Failure -> {
+                    _state.update {
+                        it.copy(isLoading = false, error = result.message)
+                    }
+                }
+            }
         }
     }
 
@@ -169,7 +226,15 @@ class GameViewModel @Inject constructor(
                         val txSignatureBytes = txResult.successPayload?.signatures?.first()
                         txSignatureBytes?.let {
                             Log.i(TAG, "startNewGame: tx success signature=${Base58.encode(it)}")
-                            val apiResult = gameApiUseCase.createGame(address, gameId, amountPerPlayer)
+                            val siwsProof = persistanceUseCase.getSiwsProof()
+                            if (siwsProof == null) {
+                                _state.update {
+                                    it.copy(isLoading = false, error = "Sign in required. Please disconnect and connect again.")
+                                }
+                                return@launch
+                            }
+                            Log.d(TAG, "API createGame with SIWS auth")
+                            val apiResult = gameApiUseCase.createGame(address, gameId, amountPerPlayer, siwsProof)
                             apiResult.onFailure { e ->
                                 Log.e(TAG, "startNewGame: API create failed (on-chain already done)", e)
                                 _state.update {
@@ -277,7 +342,15 @@ class GameViewModel @Inject constructor(
                         val sig = txResult.successPayload?.signatures?.first()
                         sig?.let {
                             Log.i(TAG, "cancelGame: tx success signature=${Base58.encode(it)}")
-                            gameApiUseCase.cancelGame(gameId, address)
+                            val siwsProof = persistanceUseCase.getSiwsProof()
+                            if (siwsProof == null) {
+                                _state.update { s ->
+                                    s.copy(isLoading = false, error = "Sign in required. Please disconnect and connect again.")
+                                }
+                                return@launch
+                            }
+                            Log.d(TAG, "API cancelGame with SIWS auth")
+                            gameApiUseCase.cancelGame(gameId, address, siwsProof)
                                 .onSuccess {
                                     Log.i(TAG, "cancelGame: API cancel success")
                                 }
@@ -433,7 +506,15 @@ class GameViewModel @Inject constructor(
                         val txSignatureBytes = txResult.successPayload?.signatures?.first()
                         txSignatureBytes?.let {
                             Log.i(TAG, "joinGame: tx success signature=${Base58.encode(it)}")
-                            val apiResult = gameApiUseCase.joinGame(trimmedPin, address)
+                            val siwsProof = persistanceUseCase.getSiwsProof()
+                            if (siwsProof == null) {
+                                _state.update {
+                                    it.copy(isLoading = false, error = "Sign in required. Please disconnect and connect again.")
+                                }
+                                return@launch
+                            }
+                            Log.d(TAG, "API joinGame with SIWS auth")
+                            val apiResult = gameApiUseCase.joinGame(trimmedPin, address, siwsProof)
                             apiResult.onFailure { e ->
                                 Log.e(TAG, "joinGame: API join failed (on-chain already done)", e)
                                 _state.update {
@@ -526,11 +607,17 @@ class GameViewModel @Inject constructor(
         val gameId = _state.value.joinedGameId ?: return
         val pubkey = _state.value.userAddress
         if (pubkey.isEmpty()) return
+        val siwsProof = persistanceUseCase.getSiwsProof()
+        if (siwsProof == null) {
+            _state.update { it.copy(error = "Sign in required. Please disconnect and connect again.") }
+            return
+        }
         val normalized = choice.lowercase()
         if (normalized !in listOf("rock", "paper", "scissors")) return
         viewModelScope.launch {
             _state.update { it.copy(gamePhase = "WAITING_FOR_OTHER", error = "") }
-            gameApiUseCase.submitChoice(gameId, pubkey, normalized)
+            Log.d(TAG, "API submitChoice with SIWS auth")
+            gameApiUseCase.submitChoice(gameId, pubkey, normalized, siwsProof)
                 .onSuccess { gameState ->
                     if (gameState.roundClearedForDraw) {
                         startDrawWithCountdown(gameId, "Draw")
@@ -696,6 +783,13 @@ class GameViewModel @Inject constructor(
 
                         persistanceUseCase.persistConnection(currentConn.publicKey,
                             currentConn.accountLabel, currentConn.authToken, currentConn.walletUriBase)
+
+                        result.authResult.signInResult?.let { sr ->
+                            val message = String(sr.signedMessage, StandardCharsets.UTF_8)
+                            val signature = Base58.encode(sr.signature)
+                            persistanceUseCase.persistSiwsProof(message, signature)
+                            Log.d(TAG, "connect: SIWS proof persisted")
+                        }
 
                         _state.value.copy(
                             userAddress = currentConn.publicKey.base58(),

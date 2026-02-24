@@ -24,20 +24,26 @@ class GameApiUseCase @Inject constructor() {
 
     private val baseUrl = BuildConfig.API_BASE_URL.trimEnd('/')
 
+    private fun Request.Builder.addSiwsHeaders(proof: SiwsProof?, address: String): Request.Builder {
+        if (proof == null) return this
+        return addHeader("X-SIWS-Address", address)
+            .addHeader("X-SIWS-Message", proof.message)
+            .addHeader("X-SIWS-Signature", proof.signature)
+    }
+
     /**
      * Creates a new game on the API. Returns game id and 4-digit PIN to share.
-     * @param creatorWallet Solana public key (base58) of the game creator
-     * @param gameId Pre-generated UUID to use as the game ID (for on-chain-first flow)
-     * @return Result with CreateGameResult or error message
+     * Creator identity from SIWS auth headers.
+     * @param siwsProof SIWS proof from sign-in (required for API auth)
      */
-    suspend fun createGame(creatorWallet: String, gameId: String? = null, amountPerPlayer: Long = 0L): Result<CreateGameResult> = withContext(Dispatchers.IO) {
+    suspend fun createGame(creatorWallet: String, gameId: String? = null, amountPerPlayer: Long = 0L, siwsProof: SiwsProof?): Result<CreateGameResult> = withContext(Dispatchers.IO) {
         val body = JSONObject().apply {
-            put("creator_pubkey", creatorWallet)
             if (gameId != null) put("game_id", gameId)
             put("amount_per_player", amountPerPlayer)
         }.toString()
         val request = Request.Builder()
             .url("$baseUrl/games/create")
+            .addSiwsHeaders(siwsProof, creatorWallet)
             .post(body.toRequestBody("application/json".toMediaType()))
             .build()
         runCatching {
@@ -92,18 +98,16 @@ class GameApiUseCase @Inject constructor() {
     }
 
     /**
-     * Joins an existing game by 4-digit PIN. Returns game id on success.
-     * @param pin 4-digit PIN shared by the game creator
-     * @param joinerWallet Solana public key (base58) of the player joining
-     * @return Result with JoinGameResult or error message
+     * Joins an existing game by 4-digit PIN. Joiner identity from SIWS auth headers.
+     * @param siwsProof SIWS proof from sign-in (required for API auth)
      */
-    suspend fun joinGame(pin: String, joinerWallet: String): Result<JoinGameResult> = withContext(Dispatchers.IO) {
+    suspend fun joinGame(pin: String, joinerWallet: String, siwsProof: SiwsProof?): Result<JoinGameResult> = withContext(Dispatchers.IO) {
         val body = JSONObject().apply {
             put("pin", pin)
-            put("joiner_pubkey", joinerWallet)
         }.toString()
         val request = Request.Builder()
             .url("$baseUrl/games/join")
+            .addSiwsHeaders(siwsProof, joinerWallet)
             .post(body.toRequestBody("application/json".toMediaType()))
             .build()
         runCatching {
@@ -173,15 +177,16 @@ class GameApiUseCase @Inject constructor() {
     }
 
     /**
-     * Submits the current player's choice (rock, paper, or scissors) for the game.
+     * Submits the current player's choice (rock, paper, or scissors). Player identity from SIWS auth headers.
+     * @param siwsProof SIWS proof from sign-in (required for API auth)
      */
-    suspend fun submitChoice(gameId: String, pubkey: String, choice: String): Result<GameState> = withContext(Dispatchers.IO) {
+    suspend fun submitChoice(gameId: String, pubkey: String, choice: String, siwsProof: SiwsProof?): Result<GameState> = withContext(Dispatchers.IO) {
         val body = JSONObject().apply {
-            put("pubkey", pubkey)
             put("choice", choice.lowercase())
         }.toString()
         val request = Request.Builder()
             .url("$baseUrl/games/$gameId/choice")
+            .addSiwsHeaders(siwsProof, pubkey)
             .post(body.toRequestBody("application/json".toMediaType()))
             .build()
         runCatching {
@@ -225,15 +230,14 @@ class GameApiUseCase @Inject constructor() {
         }.getOrElse { e -> Result.failure(e) }
     }
     /**
-     * Cancels a game on the API (sets status to "cancelled").
-     * Should be called after the on-chain cancel tx succeeds.
+     * Cancels a game on the API (sets status to "cancelled"). Creator identity from SIWS auth headers.
+     * @param siwsProof SIWS proof from sign-in (required for API auth)
      */
-    suspend fun cancelGame(gameId: String, creatorPubkey: String): Result<Unit> = withContext(Dispatchers.IO) {
-        val body = JSONObject().apply {
-            put("creator_pubkey", creatorPubkey)
-        }.toString()
+    suspend fun cancelGame(gameId: String, creatorPubkey: String, siwsProof: SiwsProof?): Result<Unit> = withContext(Dispatchers.IO) {
+        val body = JSONObject().apply { }.toString()
         val request = Request.Builder()
             .url("$baseUrl/games/$gameId/cancel")
+            .addSiwsHeaders(siwsProof, creatorPubkey)
             .post(body.toRequestBody("application/json".toMediaType()))
             .build()
         runCatching {

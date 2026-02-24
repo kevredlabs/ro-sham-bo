@@ -9,6 +9,8 @@ use axum::{
     routing::{get, post},
     Json, Router,
 };
+
+use crate::auth::AuthUser;
 use mongodb::{
     bson::doc,
     options::IndexOptions,
@@ -27,11 +29,10 @@ pub struct GameIdPath {
     pub game_id: String,
 }
 
-/// Request body for joining an existing game by PIN.
+/// Request body for joining an existing game by PIN. Joiner identity from SIWS auth.
 #[derive(Deserialize)]
 pub struct JoinGameRequest {
     pub pin: String,
-    pub joiner_pubkey: String,
 }
 
 /// Response when joining a game successfully.
@@ -40,16 +41,13 @@ pub struct JoinGameResponse {
     pub game_id: String,
 }
 
-/// Request body for cancelling a game.
-#[derive(Deserialize)]
-pub struct CancelGameRequest {
-    pub creator_pubkey: String,
-}
+/// Request body for cancelling a game (optional). Creator identity from SIWS auth.
+#[derive(Deserialize, Default)]
+pub struct CancelGameRequest {}
 
-/// Request body for submitting a RPS choice.
+/// Request body for submitting a RPS choice. Player identity from SIWS auth.
 #[derive(Deserialize)]
 pub struct SubmitChoiceRequest {
-    pub pubkey: String,
     pub choice: String,
 }
 
@@ -102,9 +100,9 @@ pub struct User {
     pub pubkey: String,
 }
 
+/// Request body for creating a game. Creator identity from SIWS auth.
 #[derive(Deserialize)]
 pub struct CreateGameRequest {
-    pub creator_pubkey: String,
     pub game_id: Option<String>,
     #[serde(default)]
     pub amount_per_player: i64,
@@ -229,13 +227,10 @@ fn compute_winner(
 
 async fn create_game(
     State(state): State<AppState>,
+    auth: AuthUser,
     Json(body): Json<CreateGameRequest>,
 ) -> Result<Json<CreateGameResponse>, ApiError> {
-    let creator_pubkey = body.creator_pubkey.trim();
-    if creator_pubkey.is_empty() {
-        log::warn!("Create game rejected: missing creator_pubkey");
-        return Err(ApiError::bad_request("creator_pubkey is required"));
-    }
+    let creator_pubkey = auth.pubkey.trim();
     if body.amount_per_player < MIN_BET_LAMPORTS {
         log::warn!("Create game rejected: amount {} below minimum {}", body.amount_per_player, MIN_BET_LAMPORTS);
         return Err(ApiError::bad_request("amount_per_player must be at least 0.001 SOL (1_000_000 lamports)"));
@@ -327,14 +322,12 @@ async fn get_game(
 
 async fn submit_choice(
     State(state): State<AppState>,
+    auth: AuthUser,
     Path(path): Path<GameIdPath>,
     Json(body): Json<SubmitChoiceRequest>,
 ) -> Result<Json<Game>, ApiError> {
-    let pubkey = body.pubkey.trim();
+    let pubkey = auth.pubkey.trim();
     let choice = body.choice.trim().to_lowercase();
-    if pubkey.is_empty() {
-        return Err(ApiError::bad_request("pubkey is required"));
-    }
     if !VALID_CHOICES.contains(&choice.as_str()) {
         return Err(ApiError::bad_request("choice must be rock, paper, or scissors"));
     }
@@ -359,7 +352,7 @@ async fn submit_choice(
         None => return Err(ApiError::bad_request("Game has no second player yet")),
     };
 
-    let (choice_field, is_creator) = if pubkey == game.creator_pubkey {
+    let (_choice_field, is_creator) = if pubkey == game.creator_pubkey {
         ("creator_choice", true)
     } else if pubkey == joiner_pubkey {
         ("joiner_choice", false)
@@ -525,13 +518,11 @@ async fn submit_choice(
 
 async fn cancel_game(
     State(state): State<AppState>,
+    auth: AuthUser,
     Path(path): Path<GameIdPath>,
-    Json(body): Json<CancelGameRequest>,
+    Json(_body): Json<CancelGameRequest>,
 ) -> Result<Json<Game>, ApiError> {
-    let creator_pubkey = body.creator_pubkey.trim();
-    if creator_pubkey.is_empty() {
-        return Err(ApiError::bad_request("creator_pubkey is required"));
-    }
+    let creator_pubkey = auth.pubkey.trim();
 
     let games = state.db.collection::<Game>("games");
     let filter = doc! {
@@ -595,17 +586,14 @@ async fn lookup_game_by_pin(
 
 async fn join_game(
     State(state): State<AppState>,
+    auth: AuthUser,
     Json(body): Json<JoinGameRequest>,
 ) -> Result<Json<JoinGameResponse>, ApiError> {
     let pin = body.pin.trim();
-    let joiner_pubkey = body.joiner_pubkey.trim();
+    let joiner_pubkey = auth.pubkey.trim();
     if pin.len() != 4 || !pin.chars().all(|c| c.is_ascii_digit()) {
         log::warn!("Join game rejected: invalid pin (must be 4 digits)");
         return Err(ApiError::bad_request("pin must be 4 digits"));
-    }
-    if joiner_pubkey.is_empty() {
-        log::warn!("Join game rejected: missing joiner_pubkey");
-        return Err(ApiError::bad_request("joiner_pubkey is required"));
     }
 
     let games = state.db.collection::<Game>("games");

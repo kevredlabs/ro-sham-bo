@@ -6,6 +6,12 @@ import com.solana.publickey.SolanaPublicKey
 import java.lang.IllegalArgumentException
 import javax.inject.Inject
 
+/** SIWS proof to send with protected API calls (message + signature; address comes from wallet). */
+data class SiwsProof(
+    val message: String,
+    val signature: String
+)
+
 sealed class WalletConnection
 
 object NotConnected : WalletConnection()
@@ -49,6 +55,21 @@ class PersistanceUseCase @Inject constructor(
         }
     }
 
+    /** Returns persisted SIWS proof for API auth, or null if not signed in with SIWS. */
+    fun getSiwsProof(): SiwsProof? {
+        val message = sharedPreferences.getString(SIWS_MESSAGE_KEY, null) ?: return null
+        val signature = sharedPreferences.getString(SIWS_SIGNATURE_KEY, null) ?: return null
+        if (message.isEmpty() || signature.isEmpty()) return null
+        return SiwsProof(message = message, signature = signature)
+    }
+
+    fun persistSiwsProof(message: String, signature: String) {
+        sharedPreferences.edit().apply {
+            putString(SIWS_MESSAGE_KEY, message)
+            putString(SIWS_SIGNATURE_KEY, signature)
+        }.apply()
+    }
+
     fun persistConnection(pubKey: SolanaPublicKey, accountLabel: String, token: String, walletUriBase: Uri?) {
         sharedPreferences.edit().apply {
             putString(PUBKEY_KEY, pubKey.base58())
@@ -66,6 +87,8 @@ class PersistanceUseCase @Inject constructor(
             remove(ACCOUNT_LABEL)
             remove(AUTH_TOKEN_KEY)
             remove(WALLET_URI_BASE)
+            remove(SIWS_MESSAGE_KEY)
+            remove(SIWS_SIGNATURE_KEY)
         }.apply()
 
         connection = NotConnected
@@ -76,6 +99,8 @@ class PersistanceUseCase @Inject constructor(
         const val ACCOUNT_LABEL = "stored_account_label"
         const val AUTH_TOKEN_KEY = "stored_auth_token"
         const val WALLET_URI_BASE = "stored_wallet_uri_base"
+        const val SIWS_MESSAGE_KEY = "siws_message"
+        const val SIWS_SIGNATURE_KEY = "siws_signature"
     }
 
 }
