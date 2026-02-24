@@ -128,6 +128,37 @@ fun RulesScreen(
 
             Spacer(modifier = Modifier.height(28.dp))
 
+            // --- PRIVACY ---
+            PixelShadowText(
+                text = "PRIVACY",
+                color = PixelCyan,
+                shadowColor = PixelTeal,
+                style = sectionTitle
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            Text(
+                text = "We collect only the data required to run the game:",
+                style = bodyStyle,
+                color = PixelWhite
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "• Your wallet public key (to identify you)\n" +
+                    "• Your game choices (rock/paper/scissors)\n" +
+                    "• Game history (result, stake, players)",
+                style = bodyStyle,
+                color = PixelLightGray
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "We do NOT collect personal information, emails, or device data. " +
+                "To delete your data, contact us via Telegram.",
+                style = bodyStyle,
+                color = PixelLightGray
+            )
+
+            Spacer(modifier = Modifier.height(28.dp))
+
             // --- CONTACT ---
             PixelShadowText(
                 text = "CONTACT",
