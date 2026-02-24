@@ -45,6 +45,8 @@ data class GameViewState(
     val showNewGameConfigScreen: Boolean = false,
     /** When true, show JoinGameScreen (enter PIN to join). */
     val showJoinGameScreen: Boolean = false,
+    /** When true, show RulesScreen. */
+    val showRulesScreen: Boolean = false,
     /** When non-null, show CurrentGameScreen (user joined this game). */
     val joinedGameId: String? = null,
     /** Current game screen phase: COUNTDOWN, SELECTION, WAITING_FOR_OTHER, DRAW_NEXT_ROUND, RESULT_COUNTDOWN, RESULT. */
@@ -334,6 +336,16 @@ class GameViewModel @Inject constructor(
                     }
             }
         }
+    }
+
+    /** Navigate to RulesScreen. */
+    fun enterRules() {
+        _state.update { it.copy(showRulesScreen = true) }
+    }
+
+    /** Returns from RulesScreen to main menu. */
+    fun backFromRules() {
+        _state.update { it.copy(showRulesScreen = false) }
     }
 
     /** Navigate to JoinGameScreen (enter PIN). */
@@ -648,6 +660,7 @@ class GameViewModel @Inject constructor(
                     gameId = null,
                     showNewGameConfigScreen = false,
                     showJoinGameScreen = false,
+                    showRulesScreen = false,
                     joinedGameId = null,
                     gamePhase = null,
                     countdownNumber = 3,

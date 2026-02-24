@@ -18,6 +18,7 @@ import com.solanamobile.ktxclientsample.ui.theme.PixelDarkBlue
 import com.solanamobile.ktxclientsample.ui.theme.PixelLightBlue
 import com.solanamobile.ktxclientsample.ui.theme.PixelLightGray
 import com.solanamobile.ktxclientsample.ui.theme.PixelTeal
+import com.solanamobile.ktxclientsample.ui.theme.PixelYellow
 
 @Composable
 fun MainMenuScreen(
@@ -26,6 +27,7 @@ fun MainMenuScreen(
     network: String,
     onNewGame: () -> Unit = {},
     onJoinGame: () -> Unit = {},
+    onRules: () -> Unit = {},
     onDisconnect: (() -> Unit)? = null
 ) {
     PixelScreen {
@@ -95,6 +97,17 @@ fun MainMenuScreen(
             )
 
             Spacer(modifier = Modifier.weight(1f))
+
+            PixelOutlinedButton(
+                text = "Rules",
+                onClick = onRules,
+                modifier = Modifier.fillMaxWidth(),
+                borderColor = PixelYellow,
+                textColor = PixelYellow,
+                buttonHeight = 40.dp
+            )
+
+            Spacer(modifier = Modifier.height(15.dp))
 
             onDisconnect?.let { disconnect ->
                 PixelOutlinedButton(

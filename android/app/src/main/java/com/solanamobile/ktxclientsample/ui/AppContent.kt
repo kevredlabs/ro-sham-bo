@@ -63,12 +63,16 @@ fun AppContent(
                     onEnter = { viewModel.joinGame(intentSender, it) },
                     onBack = { viewModel.backFromJoinGame() }
                 )
+                viewState.showRulesScreen -> RulesScreen(
+                    onBack = { viewModel.backFromRules() }
+                )
                 else -> MainMenuScreen(
                     userAddress = viewState.userAddress,
                     solBalance = viewState.solBalance,
                     network = "Devnet",
                     onNewGame = { viewModel.enterNewGameConfig() },
                     onJoinGame = { viewModel.enterJoinGame() },
+                    onRules = { viewModel.enterRules() },
                     onDisconnect = { viewModel.disconnect(intentSender) }
                 )
             }
