@@ -1,7 +1,7 @@
 //! SIWS (Sign-In With Solana) verification and auth extractor.
 //!
 //! Protects routes by requiring headers X-SIWS-Address, X-SIWS-Message, X-SIWS-Signature.
-//! Verifies the signature and optional message expiration, then exposes the pubkey.
+//! Verifies the signature and exposes the pubkey.
 
 use async_trait::async_trait;
 use axum::{
@@ -30,7 +30,6 @@ pub struct AuthUser {
 }
 
 /// Verifies SIWS proof: message was signed by the given address.
-/// Optionally parses "Expiration Time:" from message (SIWS format) and rejects if expired.
 pub fn verify_siws(
     message: &str,
     signature_base58: &str,
@@ -63,14 +62,6 @@ pub fn verify_siws(
         return Err(ApiError::unauthorized("invalid SIWS signature"));
     }
 
-    if let Some(exp) = parse_expiration_time(message) {
-        let now = chrono::Utc::now();
-        if exp < now {
-            log::warn!("SIWS message expired for address {}", address);
-            return Err(ApiError::unauthorized("SIWS message expired"));
-        }
-    }
-
     let pk_str = pubkey.to_string();
     let short = if pk_str.len() <= 10 {
         pk_str.clone()
@@ -79,20 +70,6 @@ pub fn verify_siws(
     };
     log::info!("SIWS verified pubkey={}", short);
     Ok(pk_str)
-}
-
-/// Parses "Expiration Time: <ISO 8601>" from SIWS-style message. Returns None if not present.
-fn parse_expiration_time(message: &str) -> Option<chrono::DateTime<chrono::Utc>> {
-    for line in message.lines() {
-        let line = line.trim();
-        if line.starts_with("Expiration Time:") {
-            let rest = line.trim_start_matches("Expiration Time:").trim();
-            return chrono::DateTime::parse_from_rfc3339(rest)
-                .ok()
-                .map(|dt| dt.with_timezone(&chrono::Utc));
-        }
-    }
-    None
 }
 
 #[async_trait]
