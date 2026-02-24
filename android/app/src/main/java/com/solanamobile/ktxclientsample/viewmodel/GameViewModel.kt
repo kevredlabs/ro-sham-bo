@@ -139,7 +139,11 @@ class GameViewModel @Inject constructor(
                         val message = String(sr.signedMessage, StandardCharsets.UTF_8)
                         val signature = Base58.encode(sr.signature)
                         persistanceUseCase.persistSiwsProof(message, signature)
-                        Log.d(TAG, "signIn: SIWS proof persisted")
+                        // Inspect SIWS message: API only rejects "expired" if line "Expiration Time:" is present
+                        val hasExpirationTime = message.contains("Expiration Time:")
+                        val hasIssuedAt = message.contains("Issued At:")
+                        Log.d(TAG, "signIn: SIWS proof persisted message_len=${message.length} has_Expiration_Time=$hasExpirationTime has_Issued_At=$hasIssuedAt")
+                        Log.d(TAG, "signIn: SIWS message content:\n$message")
                     }
                     _state.update {
                         it.copy(

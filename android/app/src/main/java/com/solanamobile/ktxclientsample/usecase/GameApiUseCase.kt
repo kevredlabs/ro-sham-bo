@@ -8,6 +8,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
+import java.util.Base64
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 
@@ -26,8 +27,10 @@ class GameApiUseCase @Inject constructor() {
 
     private fun Request.Builder.addSiwsHeaders(proof: SiwsProof?, address: String): Request.Builder {
         if (proof == null) return this
+        // Message may contain newlines; HTTP headers must not. Encode as Base64.
+        val messageBase64 = Base64.getEncoder().encodeToString(proof.message.toByteArray(Charsets.UTF_8))
         return addHeader("X-SIWS-Address", address)
-            .addHeader("X-SIWS-Message", proof.message)
+            .addHeader("X-SIWS-Message", messageBase64)
             .addHeader("X-SIWS-Signature", proof.signature)
     }
 

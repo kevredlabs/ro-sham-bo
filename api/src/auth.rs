@@ -13,6 +13,16 @@ use solana_sdk::{pubkey::Pubkey, signature::Signature};
 
 use crate::error::ApiError;
 
+/// Decodes X-SIWS-Message header (Base64) to the original UTF-8 message. Returns None on error.
+fn decode_siws_message_header(base64_value: &str) -> Option<String> {
+    if base64_value.is_empty() {
+        return Some(String::new());
+    }
+    use base64::Engine;
+    let bytes = base64::engine::general_purpose::STANDARD.decode(base64_value.trim()).ok()?;
+    String::from_utf8(bytes).ok()
+}
+
 /// Authenticated user: pubkey from verified SIWS proof.
 #[derive(Clone, Debug)]
 pub struct AuthUser {
@@ -99,19 +109,20 @@ where
             .and_then(|v| v.to_str().ok())
             .unwrap_or("")
             .to_string();
-        let message = headers
+        let message_base64 = headers
             .get("x-siws-message")
             .and_then(|v| v.to_str().ok())
             .unwrap_or("")
             .to_string();
+        let message = decode_siws_message_header(&message_base64).unwrap_or_default();
         let signature = headers
             .get("x-siws-signature")
             .and_then(|v| v.to_str().ok())
             .unwrap_or("")
             .to_string();
 
-        if address.is_empty() || message.is_empty() || signature.is_empty() {
-            log::warn!("SIWS missing headers: address={} message_len={} signature_len={}", address.is_empty(), message.is_empty(), signature.is_empty());
+        if address.is_empty() || message_base64.is_empty() || signature.is_empty() {
+            log::warn!("SIWS missing headers: address={} message_len={} signature_len={}", address.is_empty(), message_base64.is_empty(), signature.is_empty());
         }
         match verify_siws(&message, &signature, &address) {
             Ok(pubkey) => Ok(AuthUser { pubkey }),
