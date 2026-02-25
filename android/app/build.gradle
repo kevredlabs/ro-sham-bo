@@ -44,6 +44,7 @@ android {
     productFlavors {
         develop {
             dimension = "env"
+            applicationIdSuffix ".dev"
             buildConfigField "String", "SOLANA_RPC_URL", "\"https://api.devnet.solana.com\""
             buildConfigField "String", "API_BASE_URL", "\"https://api.develop.rps.kevred.com\""
         }
