@@ -34,7 +34,7 @@ android {
     }
 
     defaultConfig {
-        applicationId "com.kevredlabs.seekerrps"
+        applicationId "com.kevred.roshambo"
         minSdk 27
         targetSdk 36
         versionCode 1
