@@ -21,3 +21,4 @@ target/
 local.properties
 .gradle
 /captures
+keystore.properties
