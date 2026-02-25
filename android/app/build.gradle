@@ -12,6 +12,12 @@ if (keystorePropertiesFile.exists()) {
     keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
 }
 
+def localProperties = new Properties()
+def localPropertiesFile = rootProject.file("local.properties")
+if (localPropertiesFile.exists()) {
+    localProperties.load(new FileInputStream(localPropertiesFile))
+}
+
 android {
     compileSdk 36
     namespace 'com.solanamobile.ktxclientsample'
@@ -45,12 +51,12 @@ android {
         develop {
             dimension = "env"
             applicationIdSuffix ".dev"
-            buildConfigField "String", "SOLANA_RPC_URL", "\"https://api.devnet.solana.com\""
+            buildConfigField "String", "SOLANA_RPC_URL", "\"${localProperties.getProperty('solana.rpc.devnet', 'https://api.devnet.solana.com')}\""
             buildConfigField "String", "API_BASE_URL", "\"https://api.develop.rps.kevred.com\""
         }
         prod {
             dimension = "env"
-            buildConfigField "String", "SOLANA_RPC_URL", "\"https://mei-y0cp6y-fast-mainnet.helius-rpc.com\""
+            buildConfigField "String", "SOLANA_RPC_URL", "\"${localProperties.getProperty('solana.rpc.mainnet', '')}\""
             buildConfigField "String", "API_BASE_URL", "\"https://api.rps.kevred.com\""
         }
     }
