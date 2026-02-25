@@ -133,6 +133,8 @@ anchor build
 anchor test
 ```
 
+32 tests passing — [see test results](tests-screenshot.png).
+
 ### API
 
 ```bash
