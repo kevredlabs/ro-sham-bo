@@ -1,6 +1,10 @@
-# Seeker RPS
+# Ro-Sham-Bo
 
-A **Rock-Paper-Scissors** game with **Solana escrow**: two players stake SOL per game; the winner receives the pot (minus a 3 % treasury fee) after the backend resolves the result on-chain.
+![Ro-Sham-Bo](banner.png)
+
+Rock-Paper-Scissors on Solana. Bet SOL against other players, winner takes all. Built with pixel art vibes.
+
+> **V1 has been submitted and is currently under review on the [Solana dApp Store](https://dappstore.app).**
 
 ## Overview
 
@@ -17,10 +21,9 @@ The game is played on the [**Solana Mobile**](https://solanamobile.com/developer
 | Path | Description |
 |------|-------------|
 | `api/` | Rust API (Axum, MongoDB, Solana client for resolve) |
-| `android/` | Android app (Solana Mobile). Main source: `app/src/main/java/com/solanamobile/ktxclientsample/` (Kotlin — UI, ViewModels, `GameApiUseCase`, `EscrowUseCase`, wallet connect, game flow). |
+| `android/` | Android app (Kotlin, Jetpack Compose, Solana Mobile) |
 | `programs/rps-escrow/` | Anchor workspace: Solana program `rps_escrow` |
 | `programs/rps-escrow/runbooks/` | [Surfpool](https://surfpool.run) runbooks (deployment, resolve, refund) |
-| `programs/rps-escrow/upgrade_authority.json` | Keypair holding the **program upgrade authority**; used to upgrade the deployed program (e.g. via `anchor upgrade` or runbooks). Keep this file secret and out of version control (it is in `.gitignore`). |
 
 ## Solana program (rps-escrow)
 
@@ -83,11 +86,42 @@ Other terminal states: `cancelled`, `resolve_failed`.
 | `MONGODB_DB_NAME` | yes | Database name |
 | `SOLANA_RPC_URL` | yes | Solana RPC endpoint |
 | `RPS_ESCROW_PROGRAM_ID` | yes | Deployed rps-escrow program ID |
-| `RESOLVE_AUTHORITY_KEYPAIR_PATH` | yes | Path to the resolve authority keypair JSON. If the file cannot be loaded the API still starts but on-chain resolve is disabled. |
+| `RESOLVE_AUTHORITY_KEYPAIR_PATH` | yes | Path to the resolve authority keypair JSON |
 
-## Android (Solana Mobile)
+## Android
 
-The mobile frontend is **full Kotlin** (no React Native or hybrid). App lives in `android/`, package `com.solanamobile.ktxclientsample`. It drives the full game flow on device: wallet connection via [Solana Mobile](https://solanamobile.com/developers), create/join game via the REST API, and on-chain **create_game** / **join_game** via `EscrowUseCase`; choices are submitted through the API; the UI (Jetpack Compose) and `GameViewModel` / `GameApiUseCase` handle game state and rounds. Target device for E2E tests: **Seeker**. The mobile app is built and tested with **Android Studio**.
+### Build variants
+
+| Variant | Application ID | Network | API |
+|---|---|---|---|
+| `developDebug` | com.kevred.roshambo.dev | Devnet | api.develop.rps.kevred.com |
+| `developRelease` | com.kevred.roshambo.dev | Devnet | api.develop.rps.kevred.com |
+| `prodDebug` | com.kevred.roshambo | Mainnet | api.rps.kevred.com |
+| **`prodRelease`** | com.kevred.roshambo | Mainnet | api.rps.kevred.com |
+
+### Run the app
+
+1. **Open the project** — In Android Studio: **File → Open** → select the `android` folder. Wait for Gradle sync.
+2. **On emulator** — Create an AVD if needed, select it and click **Run**.
+3. **On Seeker** — Enable USB debugging, connect via USB, select the device and click **Run**.
+
+### Build from command line
+
+```bash
+cd android
+
+# Debug (develop)
+./gradlew assembleDevelopDebug
+
+# Release (prod) — signed APK for dApp Store
+./gradlew assembleProdRelease
+```
+
+### Verify APK signature
+
+```bash
+apksigner verify --print-certs app/build/outputs/apk/prod/release/app-prod-release.apk
+```
 
 ## Building and running
 
@@ -98,8 +132,6 @@ cd programs/rps-escrow
 anchor build
 anchor test
 ```
-
-To **upgrade** the deployed program, use the keypair in `programs/rps-escrow/upgrade_authority.json` (e.g. `anchor upgrade` with `--provider.cluster` and the wallet set to this keypair, or the deployment runbook). That file must remain secret and is listed in `.gitignore`.
 
 ### API
 
@@ -112,15 +144,11 @@ cargo build --release
 
 The API listens on `0.0.0.0:3000`.
 
-### Android (Android Studio)
-
-Open the `android/` project in **Android Studio**, then build and run on an emulator or a **Seeker** device to test the mobile flow.
-
 ## Tech stack
 
-- **Solana**: Anchor 0.32.1, program ID `F4d4VwBaQrqf5hUZs74XoiVCAo76BpeRSqABxMMzG7kN` (localnet / devnet / mainnet).
+- **Solana**: Anchor 0.32.1, program ID `F4d4VwBaQrqf5hUZs74XoiVCAo76BpeRSqABxMMzG7kN`.
 - **API**: Rust (Axum, MongoDB driver, SIWS auth, Anchor client for resolve).
-- **Mobile**: Full Kotlin (Jetpack Compose, Solana Mobile); tested with Android Studio on Seeker.
+- **Mobile**: Full Kotlin (Jetpack Compose, Solana Mobile); tested on Seeker.
 - **Deployment / tooling**: Surfpool (Surfnet, runbooks).
 
 ## License
