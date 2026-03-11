@@ -144,6 +144,14 @@ fun NewGameConfigScreen(
                 )
             }
 
+            Spacer(modifier = Modifier.height(24.dp))
+            Text(
+                text = "Share the game code with a friend to play. There is no automatic matchmaking.",
+                style = MaterialTheme.typography.body1.copy(fontSize = 16.sp),
+                color = PixelLightGray,
+                modifier = Modifier.fillMaxWidth()
+            )
+
             Spacer(modifier = Modifier.weight(1f))
 
             PixelButton(
