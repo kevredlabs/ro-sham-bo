@@ -4,7 +4,7 @@
 
 Rock-Paper-Scissors on Solana. Bet SOL against other players, winner takes all. Built with pixel art vibes.
 
-> **V1 has been submitted and is currently under review on the [Solana dApp Store](https://dappstore.app).**
+> **V1 is live on the Solana dApp Store, you can use it with a Solana Mobile, more info about the ecosystem here: [https://solanamobile.com/].**
 
 ## Overview
 
